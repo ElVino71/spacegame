@@ -7,69 +7,94 @@ A 2D space exploration, trading, and combat game inspired by Starflight 2. The p
 
 ## Game Screens & Views
 
-### 1. Galaxy Map (Top-Down)
-- Zoomed-out view of star systems as nodes/icons
-- Player plots course between systems by selecting destinations
-- Shows known/discovered systems, trade routes, faction territories
-- Fuel range overlay shows reachable systems from current position
-- Systems revealed through exploration, buying star charts, or finding data in ruins
+### 1. Galaxy Map (Top-Down) — IMPLEMENTED
+- Zoomed-out view of star systems as nodes with faction-colored rings
+- Fixed HTML side panel showing ship status, current location, and selected target info
+- Player selects destination and jumps between connected systems (consumes fuel)
+- Shows discovered/visited systems, jump lane connections, faction territories
+- Jump range circle overlay shows reachable systems from current position
+- Scroll to zoom, drag to pan, click to select
+- Animated warp transition when jumping between systems
 
-### 2. System View (Top-Down)
-- Entered when arriving at a star system
-- Shows the sun, orbiting planets, asteroid belts, gas giants
-- Player can fly ship freely between objects in the system
-- Encounters (pirates, traders, patrols) happen here
-- Can scan planets/asteroids from orbit before committing to land/mine
+### 2. System View (Top-Down) — IMPLEMENTED
+- Shows the sun at center, orbiting planets, asteroid belts
+- Player flies ship freely with WASD (thrust-based physics with drag)
+- Planets orbit the star in real-time
+- Can approach planets to land (SPACE) or stations to dock (SPACE)
+- Animated landing/docking transitions when interacting
+- HUD shows hull, fuel, speed, credits
 
-### 3. Ship Interior (Side-On 2D)
-- Cross-section view of the ship showing rooms/modules
-- Rooms correspond to installed systems: bridge, engine room, cargo bay, weapons bay, crew quarters, shield generator room, computer terminal room
-- Player character can walk between rooms
-- Visual representation of ship condition (damage shown on rooms)
-- Crew members visible at their stations
+### 3. Ship Interior (Side-On 2D) — IMPLEMENTED
+- Cross-section view of the ship showing rooms matching installed modules
+- Rooms generated from ship's module slot configuration (bridge, engine room, cargo bay, etc.)
+- Player character (stick figure) walks between rooms with WASD
+- Each room displays its module stats in the info panel
+- Bridge shows overall ship status
+- Access terminal with T key
 
-### 4. Planet Surface (Top-Down)
-- Exploration view when landed on a planet
-- Player drives a surface vehicle or walks around
-- Terrain varies by planet type: rocky, ice, desert, lush, volcanic
-- Points of interest: mineral deposits, ruins entrances, settlements, wreckage
-- Hazards based on atmosphere/temperature (require suit upgrades)
+### 4. Planet Surface (Top-Down) — IMPLEMENTED
+- 128x128 tile-based exploration map
+- Terrain generated per planet type with appropriate color palettes (rocky, desert, ice, lush, volcanic, ocean, barren moon)
+- Points of interest: mineral deposit clusters, ruins entrances, settlements
+- Player moves tile-by-tile with WASD
+- Fixed HTML side panel showing planet info, player status, and current tile details
+- SPACE to interact with minerals/ruins/settlements
+- Animated takeoff transition when leaving (ESC)
 
-### 5. Ruins / Dungeons (Side-On 2D)
+### 5. Ruins / Dungeons (Side-On 2D) — NOT YET IMPLEMENTED
 - Entered from planet surface when discovering ruins
 - Platformer-lite exploration of ancient structures
 - Puzzles, traps, loot, and lore fragments
 - Some ruins require specific equipment to access deeper areas
 - Boss encounters or guardians protecting valuable tech
 
-### 6. Ship Computer Terminal
-- Full-screen terminal interface with command-line interaction
-- Player types commands to interact with ship systems
-- Functions: navigation calculations, cargo manifest, ship status, distress signal decoding, encyclopedia/codex, mission log
-- Hackable - can decode found data chips, crack encrypted transmissions
-- Personality/AI companion that responds conversationally
-- Easter eggs and hidden commands
+### 6. Ship Computer Terminal — IMPLEMENTED
+- Full-screen terminal interface with CRT-style scanline effect
+- Player types commands; output rendered with monospace text
+- Commands: help, status, scan, cargo, nav, systems, codex, clear, exit
+- Scan shows full system breakdown (planets, minerals, stations)
+- Nav shows connected systems with distances and fuel costs
+- Easter egg commands (joke, hello)
+- Blinking cursor, command history
 
-### 7. Shipyard / Station Interface
-- Ship design and modification screen
-- Drag-and-drop or menu-based module placement
-- Buy/sell/swap ship components
+### 7. Station Interface — IMPLEMENTED
+- Entered when docking at a space station (with docking transition)
+- Menu-driven interface: Trade Goods, Refuel, Repair Hull, Undock
+- HTML side panel shows station info, ship status, market listings, cargo hold
+- 15 trade commodities with prices affected by station economy type
+- Economy types modify buy/sell prices (e.g. mining stations sell minerals cheap)
+- Buy (B) and sell (V) individual units of cargo
+- Refuel and hull repair services
+
+### 8. Scene Transitions — IMPLEMENTED
+- Warp: Star-streak effect with blue shift, central glow (~2.2s)
+- Landing: Atmospheric reentry with heat shield glow, surface approaching (~1.8s)
+- Takeoff: Surface recedes, engine glow, stars appear (~1.8s)
+- Docking: Station walls close in with guide lights (~1.4s)
+- Undocking: Reverse dock animation (~1.4s)
+
+### NOT YET IMPLEMENTED: Shipyard / Ship Modification Screen
+- Dedicated screen for buying/selling/swapping ship modules
 - Visual preview of ship cross-section with modules
-- Available at space stations and certain planet settlements
+- Available at space stations
 
 ---
 
 ## Core Gameplay Systems
 
-### Trading
-- Commodities vary in price between systems based on economy type
-- Economy types: agricultural, industrial, mining, military, research, outpost
-- Supply/demand simulation - prices shift based on player actions and events
-- Illegal goods (contraband) with high risk/reward
-- Trade route discovery through exploration and NPC tips
-- Commodity types: food, minerals, tech components, luxury goods, medical supplies, weapons, alien artifacts, fuel
+### Trading — IMPLEMENTED (Basic)
+- 15 commodities: food, water, medical supplies, ores (iron, copper, titanium, platinum), crystals, electronics, ship components, weapons, luxury goods, fuel cells, alien artifacts, rare earth
+- Economy types affect prices: agricultural, industrial, mining, military, research, outpost
+- Each economy type has category modifiers (e.g. mining stations buy minerals cheap, sell tech expensive)
+- Per-station seeded price variance for variety
+- Buy/sell at station market interface
 
-### Combat
+### Trading — NOT YET IMPLEMENTED
+- Supply/demand simulation (prices shift based on player trades)
+- Illegal goods (contraband) with risk/reward
+- Trade route discovery through NPC tips
+
+### Combat — NOT YET IMPLEMENTED
 - Real-time 2D combat in system view
 - Shield management (directional shields if upgraded)
 - Multiple weapon types: lasers, missiles, kinetic, EMP
@@ -77,96 +102,121 @@ A 2D space exploration, trading, and combat game inspired by Starflight 2. The p
 - Disable vs destroy options (boarding for loot, or bounty collection)
 - Flee option with engine-dependent success chance
 
-### Bounty Hunting
+### Bounty Hunting — NOT YET IMPLEMENTED
 - Bounty board available at stations
 - Targets range from petty pirates to dangerous faction leaders
 - Must track targets across systems using clues
 - Alive captures worth more than destroyed targets
 - Reputation affects available bounties
 
-### Mining
-- Asteroids: approach and mine from ship with mining laser
-- Planet surface: deploy mining equipment at mineral deposits
-- Different mineral types with varying values
-- Some minerals needed for crafting/upgrades
-- Gas giants: scoop fuel and rare gases with specialized equipment
+### Mining — PARTIALLY IMPLEMENTED
+- Planet surface: mineral deposits appear as tile clusters, can be collected with SPACE
+- NOT YET: Asteroid mining from ship with mining laser
+- NOT YET: Gas giant fuel scooping
+- NOT YET: Minerals feeding into crafting/upgrade system
 
-### Exploration & Discovery
-- Uncharted systems with unique features
-- Ruins containing lore about an ancient civilization
-- Assembling the lore reveals larger story/mystery
-- Derelict ships to board and salvage
-- Anomalies: wormholes, nebulae with special properties, space creatures
+### Exploration & Discovery — PARTIALLY IMPLEMENTED
+- Procedural galaxy with ~300 star systems
+- Systems discovered when visited or connected to a visited system
+- Planet surfaces with procedural terrain and POIs
+- NOT YET: Ruin exploration and lore fragment collection
+- NOT YET: Derelict ships to board and salvage
+- NOT YET: Anomalies (wormholes, nebulae, space creatures)
 
 ---
 
 ## Ship Systems & Progression
 
-### Ship Classes (upgradeable or purchasable)
-- **Scout**: Fast, small cargo, light weapons. Cheap starter ship
-- **Freighter**: Slow, massive cargo, minimal weapons. Trading focus
-- **Corvette**: Balanced speed/weapons/cargo. All-rounder
-- **Gunship**: Heavy weapons, good shields, small cargo. Combat focus
-- **Explorer**: Good sensors, decent cargo, medium speed. Exploration focus
+### Ship Classes — IMPLEMENTED (Data Only)
+- **Scout**: Fast, small cargo, light weapons. Starter ship (80 hull, 100 fuel)
+- **Freighter**: Slow, massive cargo (3 cargo slots), minimal weapons (120 hull, 150 fuel)
+- **Corvette**: Balanced speed/weapons/cargo, two weapon slots (100 hull, 120 fuel)
+- **Gunship**: Heavy weapons (3 weapon slots), good shields, small cargo (150 hull, 100 fuel)
+- **Explorer**: Good sensors, computer, mining, life support (90 hull, 180 fuel)
 
-### Swappable/Upgradeable Modules
-- **Engines**: Affects speed, fuel efficiency, system jump range
-- **Shields**: Energy shields with capacity and recharge stats; directional variants
-- **Weapons**: Hardpoints for different weapon types; limited by ship class
-- **Cargo Bays**: Expandable storage; trade-off with other module space
-- **Sensors**: Scan range, detail level, ability to detect hidden things
-- **Life Support**: Required for certain atmospheres and long voyages
-- **Mining Equipment**: Laser miners, gas scoops, surface drills
-- **Computer Core**: Affects terminal capabilities, hacking success, auto-navigation
-- **Hull Plating**: Armor that absorbs damage after shields fail
-- **Surface Vehicle**: For planet exploration; upgradeable separately
+### Module Types — IMPLEMENTED (Data Only)
+- **Engines**: speed, jumpRange, fuelEfficiency stats
+- **Shields**: capacity, rechargeRate stats
+- **Weapons**: damage, fireRate, range, energyCost stats
+- **Cargo Bays**: capacity stat
+- **Sensors**: range, detail stats
+- **Computer Core**: hackBonus, autoNav stats
+- **Mining Equipment**: (slot defined, no starter module)
+- **Hull Plating**: (slot defined, no starter module)
+- **Life Support**: (slot defined, no starter module)
+
+### NOT YET IMPLEMENTED
+- Buying/selling ships at shipyards
+- Module marketplace
+- Module tier progression beyond starter gear
+- Surface vehicle for planet exploration
 
 ---
 
-## Planet Types & Properties
+## Planet Types & Properties — IMPLEMENTED
 
 | Type | Landable | Mineable | Atmosphere | Notes |
 |------|----------|----------|------------|-------|
-| Rocky | Yes | Yes | Varies | Most common, may have ruins |
-| Desert | Yes | Yes | Thin | Mineral-rich, harsh conditions |
-| Ice | Yes | Yes | None/Thin | Subsurface deposits, ancient frozen ruins |
-| Lush | Yes | Some | Breathable | Settlements, trading posts |
-| Volcanic | Yes (with gear) | Yes | Toxic | Rare minerals, dangerous |
-| Gas Giant | No (orbit only) | Gas scoop | Crushing | Fuel harvesting, rare gases |
-| Ocean | Limited | Limited | Varies | Floating platforms, underwater ruins? |
-| Barren Moon | Yes | Yes | None | Low gravity, easy mining |
+| Rocky | Yes | Yes | None/Thin | Most common, may have ruins |
+| Desert | Yes | Yes | None/Thin | Mineral-rich |
+| Ice | Yes | Yes | None/Thin | May have ruins |
+| Lush | Yes | No | Breathable | Higher settlement chance |
+| Volcanic | Yes | Yes | Toxic/Thin | Lava tiles on surface |
+| Gas Giant | No | Yes (gas scoop) | Crushing | Orbit only |
+| Ocean | Yes | No | Breathable/Thin | Water tiles on surface |
+| Barren Moon | Yes | Yes | None | Small size |
 
-### Sun Types
-- Yellow dwarf, Red giant, Blue giant, White dwarf, Binary systems, Neutron star
-- Sun type affects system generation (planet types, number, hazards)
-
----
-
-## Procedural Generation Scope
-- Galaxy layout: star positions, types, connections
-- System contents: number/type of planets, asteroid belts, stations
-- Planet surfaces: terrain, mineral placement, ruin locations, settlements
-- Ruin interiors: room layouts, puzzles, loot tables
-- NPC names, ship loadouts, trade prices, bounty targets
-- Events and encounters
+### Sun Types — IMPLEMENTED
+- O (blue), B (blue-white), A (white), F (yellow-white), G (yellow/sol-like), K (orange), M (red)
+- Star type affects planet count and type distribution
+- Hotter/rarer stars more likely near galactic center
 
 ---
 
-## Factions & NPCs
-- Multiple factions controlling regions of space
-- Reputation system per faction (hostile to allied)
-- Faction-specific goods, missions, and ships
-- Independent traders, pirates, bounty hunters as dynamic NPCs
-- Alien races with unique tech and trade goods
+## Procedural Generation — IMPLEMENTED
+- **Galaxy**: Seed-based, Poisson disk sampling for star placement, distance-based connections, BFS faction territory assignment
+- **Systems**: Planet count/types based on star type, weighted orbital placement, asteroid belts, stations (60% chance)
+- **Planet surfaces**: 128x128 tile maps, palette per planet type, mineral clusters, ruins/settlement placement
+- **Names**: Syllable-combination system with prefixes/middles/suffixes, Greek letter planet names
+- **Economy**: Per-station price generation from economy type modifiers + seeded variance
+
+### NOT YET IMPLEMENTED
+- Ruin interior generation
+- NPC ship generation
+- Dynamic events and encounters
 
 ---
 
-## Story / Lore Framework
+## Factions — IMPLEMENTED (Basic)
+- 6 factions: Terran Accord, Krai Collective, Syndicate, Luminari, Void Runners, Independent
+- Territory assigned via BFS flood-fill from home systems
+- Faction shown on galaxy map (colored rings) and station info
+- Reputation tracking per faction (-100 to 100) in player data
+
+### NOT YET IMPLEMENTED
+- Reputation affecting prices, missions, access
+- Faction-specific goods and ships
+- NPC ships with faction allegiance
+- Dynamic faction relations
+
+---
+
+## Story / Lore Framework — NOT YET IMPLEMENTED
 - Ancient precursor civilization left ruins across the galaxy
 - Fragments of their story found in ruins (text logs, artifacts, murals)
 - Assembling the full picture reveals a threat or opportunity
 - Player choice in how to use the knowledge
 - Not a linear story - discovery-driven narrative
+- Codex system exists in terminal (empty, awaiting content)
+
+---
+
+## UI Approach — IMPLEMENTED
+- Fixed HTML/CSS side panels for galaxy map, planet surface, and station scenes
+- Share Tech Mono font for clean sci-fi aesthetic
+- Phaser canvas for game rendering, HTML overlay for UI text
+- Panels show ship status, location info, contextual details
+- Color-coded values (green/yellow/red) and progress bars for hull/fuel/cargo
 
 ---
 
@@ -177,3 +227,4 @@ A 2D space exploration, trading, and combat game inspired by Starflight 2. The p
 - Crafting system beyond ship modules?
 - Dynamic faction wars that reshape territory?
 - Procedural mission generation?
+- Save/load system (architecture designed but not implemented)

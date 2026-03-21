@@ -2,268 +2,249 @@
 
 ## Technology Stack
 
-### Recommended: Phaser 3 + TypeScript
-- **Engine**: Phaser 3 (mature 2D game framework, huge ecosystem)
-- **Language**: TypeScript (type safety, better tooling for a project this size)
-- **Build**: Vite (fast dev server, simple config)
-- **State Management**: Custom ECS-lite or simple scene-based state
-- **Data**: JSON files for game data, localStorage or IndexedDB for saves
-- **UI**: Phaser DOM elements or a lightweight overlay (e.g., vanilla HTML/CSS panels for terminal, menus)
-
-### Why Phaser 3
-- Purpose-built for 2D games in the browser
-- Handles sprites, tilemaps, physics, cameras, input, audio out of the box
-- Scene system maps well to the game's multiple screens
-- Large community, plenty of examples for every feature needed
-- Can be packaged as desktop app via Electron/Tauri later if desired
-
-### Alternative Considered: Godot
-- More powerful but heavier; better if you want to ship native binaries
-- GDScript or C# instead of TypeScript
-- Could be a migration target later if browser performance becomes limiting
+### Phaser 3 + TypeScript + Vite
+- **Engine**: Phaser 3.90 (2D game framework)
+- **Language**: TypeScript with strict mode
+- **Build**: Vite 8 (dev server on port 3000, hot reload)
+- **State Management**: Singleton GameState class with scene-based flow
+- **Data**: TypeScript constants and interfaces (no external JSON data files yet)
+- **UI**: HTML/CSS overlay panels for menus (Share Tech Mono font), Phaser canvas for game rendering
+- **Dependencies**: Phaser only — no simplex-noise or seedrandom (custom SeededRandom implementation)
 
 ---
 
-## Architecture Overview
+## Architecture — Current State
 
 ```
 src/
-  main.ts                  # Entry point, Phaser game config
+  main.ts                    # Entry point, Phaser game config, scene registration
+  GameState.ts               # Singleton game state (galaxy, player, jump logic)
   scenes/
-    BootScene.ts            # Asset preloading
-    GalaxyMapScene.ts       # Star system map navigation
-    SystemScene.ts          # In-system flight, encounters
-    ShipInteriorScene.ts    # Side-on ship cross-section
-    PlanetSurfaceScene.ts   # Top-down planet exploration
-    RuinsScene.ts           # Side-on ruin exploration
-    TerminalScene.ts        # Ship computer interface
-    ShipyardScene.ts        # Ship modification UI
-    CombatScene.ts          # Real-time combat (could be overlay on SystemScene)
+    BootScene.ts              # Generates placeholder textures programmatically
+    GalaxyMapScene.ts         # Star map with HTML side panel, zoom/pan/select
+    SystemScene.ts            # In-system flight with thrust physics
+    ShipInteriorScene.ts      # Side-on ship rooms, walk between modules
+    PlanetSurfaceScene.ts     # Top-down 128x128 tile exploration with HTML panel
+    TerminalScene.ts          # CLI interface with command parser
+    StationScene.ts           # Station menu, trading, refuel, repair with HTML panel
+    TransitionScene.ts        # Animated transitions (warp, land, takeoff, dock, undock)
   generation/
-    GalaxyGenerator.ts      # Procedural galaxy layout
-    SystemGenerator.ts      # Star system contents
-    PlanetGenerator.ts      # Surface terrain and POIs
-    RuinGenerator.ts        # Ruin room layouts
-    NameGenerator.ts        # Procedural names for systems, planets, NPCs
+    GalaxyGenerator.ts        # Poisson disk sampling, connections, faction BFS
+    SystemGenerator.ts        # Planet/asteroid/station generation per system
+    NameGenerator.ts          # Syllable-combination name generation
   entities/
-    Ship.ts                 # Player ship state and module slots
-    Planet.ts               # Planet data model
-    StarSystem.ts           # System data model
-    NPC.ts                  # NPC ships, traders, bounty targets
-    Player.ts               # Player state, inventory, reputation
-  systems/
-    TradeSystem.ts          # Economy simulation, price calculation
-    CombatSystem.ts         # Damage, shields, weapons logic
-    MiningSystem.ts         # Resource extraction mechanics
-    ReputationSystem.ts     # Faction standing tracking
-    BountySystem.ts         # Bounty generation and tracking
-    InventorySystem.ts      # Cargo and item management
-  terminal/
-    TerminalEngine.ts       # Command parser and response handler
-    commands/               # Individual terminal commands
-      nav.ts
-      cargo.ts
-      scan.ts
-      status.ts
-      hack.ts
-      codex.ts
-  data/
-    ship-modules.json       # Module definitions (engines, weapons, etc.)
-    commodities.json        # Trade goods definitions
-    planet-templates.json   # Planet type templates
-    faction-data.json       # Faction definitions
-    lore-fragments.json     # Ruin lore text pieces
-  ui/
-    HUD.ts                  # In-game overlay (fuel, shields, hull)
-    DialoguePanel.ts        # NPC conversation UI
-    TradePanel.ts           # Buy/sell interface
-    ShipDesigner.ts         # Module drag-and-drop UI
+    Ship.ts                   # ShipModule, ModuleSlot, ShipData, ship templates, starter modules
+    StarSystem.ts             # StarSystemData, PlanetData, StationData interfaces
+    Player.ts                 # PlayerData, ship stat helpers, createNewPlayer()
   utils/
-    SeededRandom.ts         # Deterministic RNG for procedural gen
-    SaveManager.ts          # Save/load game state
-    MathHelpers.ts          # Distance, angle, interpolation utils
+    SeededRandom.ts           # Mulberry32 PRNG with helpers (int, float, pick, weighted, shuffle, chance, fork)
+    Constants.ts              # Dimensions, colors, type definitions, faction names
+```
+
+### Not yet created (planned in GAME_CONCEPT.md)
+```
+  scenes/
+    RuinsScene.ts             # Side-on ruin exploration
+    CombatScene.ts            # Real-time combat
+    ShipyardScene.ts          # Ship modification/purchase UI
+  generation/
+    PlanetGenerator.ts        # (currently inline in PlanetSurfaceScene)
+    RuinGenerator.ts          # Ruin room layouts
+  entities/
+    NPC.ts                    # NPC ships, traders, bounty targets
+  systems/
+    TradeSystem.ts            # (currently inline in StationScene)
+    CombatSystem.ts
+    MiningSystem.ts
+    ReputationSystem.ts
+    BountySystem.ts
+    InventorySystem.ts
+  terminal/
+    TerminalEngine.ts         # (currently inline in TerminalScene)
+    commands/                 # (currently inline in TerminalScene)
+  ui/
+    HUD.ts
+    DialoguePanel.ts
+  data/
+    ship-modules.json
+    commodities.json
+    lore-fragments.json
 ```
 
 ---
 
-## Procedural Generation Strategy
+## Procedural Generation — Implementation Details
 
-### Galaxy Generation
-- **Seed-based**: Single master seed generates entire galaxy deterministically
-- **Algorithm**: Poisson disk sampling for star placement (natural-looking distribution)
-- **Connectivity**: Delaunay triangulation for jump routes, pruned for gameplay (not everything connected to everything)
-- **Regions**: Voronoi cells assign faction territory
-- **Star types**: Weighted random based on position (e.g., denser/hotter stars toward galactic center)
-- **Scale**: ~200-500 star systems (enough variety, manageable generation)
+### Galaxy Generation (GalaxyGenerator.ts)
+- **Seed-based**: Single master seed, Mulberry32 PRNG
+- **Algorithm**: Poisson disk sampling with minimum distance constraint for natural star placement
+- **Scale**: ~300 star systems (GALAXY_SIZE constant), 4000px galaxy bounds
+- **Connectivity**: Distance-threshold approach — each system connects to nearest 3-6 neighbours within range
+- **Factions**: 6 factions, home systems spread evenly, BFS flood-fill with random priority for organic borders
+- **Star types**: O/B/A/F/G/K/M weighted by distance from galactic center (hotter stars toward center)
+- **System contents**: Generated eagerly for all systems at galaxy creation (using forked RNG per system)
 
-### System Generation
-- Star type determines planet count and type distribution
-- Orbital slots filled using weighted probability tables
-- Asteroid belts placed in gaps between planets
-- Stations placed based on faction presence and economy type
-- Each system generated on first visit from its seed (galaxy seed + system index)
+### System Generation (SystemGenerator.ts)
+- Planet count based on star type (e.g. G-class: 3-7, M-class: 1-4)
+- Planet types weighted by orbital position (inner: rocky/volcanic, middle: lush/ocean, outer: ice/gas giant)
+- Each planet has: type, orbit, size, atmosphere, landable/mineable flags, ruins/settlement chance, mineral deposits
+- Asteroid belts: 0-2 per system with density and mineral richness
+- Stations: 60% chance per system, random economy type, orbits near a planet
 
-### Planet Surface Generation
-- Tile-based top-down maps using wave function collapse or noise-based terrain
-- Planet type determines tile palette (rock, sand, ice, grass, lava, etc.)
-- POI placement: minerals via noise thresholds, ruins via low probability scatter, settlements near flat terrain
-- Generated and cached on first landing
+### Planet Surface (inline in PlanetSurfaceScene.ts)
+- 128x128 tile grid, 16px tiles
+- RNG-based terrain (not noise — simple probability per tile)
+- Palette per planet type (ground colors, rock colors)
+- Mineral clusters: 4-8 tiles per deposit, scattered around deposit coordinates
+- Ruins entrance: single tile with surrounding ruin-colored ground
+- Settlements: single tile with surrounding settlement-colored ground
+- Spawn area cleared in center
 
-### Ruin Generation
-- Room-based dungeon generation (BSP tree or graph-based)
-- Side-on view: rooms connected by corridors, vertical shafts
-- Difficulty scales with distance from starting area of galaxy
-- Loot tables weighted by ruin tier
-- Puzzles drawn from a template pool, parameterized per instance
-
-### Name Generation
-- Markov chain or syllable-combination for alien-sounding names
-- Consistent naming per faction/region (e.g., faction A has harsh consonants, faction B has flowing vowels)
-- Seeded per entity for determinism
+### Name Generation (NameGenerator.ts)
+- Syllable combination: prefix + optional middle + suffix
+- 30% chance of catalog number suffix (e.g. "Altaris-42")
+- Planet names: 50% chance Greek letter (Alpha, Beta...), else generated
+- Station names: system name or prefix + type (Station, Outpost, Port, etc.)
 
 ---
 
-## Key Technical Challenges & Solutions
+## Key Implementation Details
 
-### 1. Multiple View Types
-**Challenge**: Game has top-down, side-on, and UI-only screens.
-**Solution**: Phaser's Scene system. Each view is a separate scene. Scenes can run in parallel (e.g., HUD scene overlays system scene). Scene transitions handle cleanup and state passing.
+### Scene Transitions (TransitionScene.ts)
+- Generic transition scene accepting type, target scene, target data, and display text
+- Types: warp (2.2s), land (1.8s), takeoff (1.8s), dock (1.4s), undock (1.4s)
+- Warp: 300 stars with z-depth, streaking from center, speed acceleration curve, blue color shift
+- Landing: upward particle stream, heat shield glow (sine-based intensity), surface rising from below
+- Takeoff: reverse of landing — surface drops, engine glow, stars fade in
+- Docking: station walls closing from top/bottom, blinking guide lights, approach stars slowing
+- All transitions fade to black before starting target scene
 
-### 2. Ship Module System
-**Challenge**: Ships have variable module slots affecting gameplay across multiple systems.
-**Solution**: Component-based ship model. Ship has typed slots (engine, weapon[], shield, cargo[], sensor, etc.). Each module is a data object with stats. Systems query ship modules when calculating outcomes. Ship interior scene reads module list to render rooms.
+### HTML Panel System
+- Single `#ui-panel` div in index.html, shown/hidden per scene
+- Each scene rebuilds panel innerHTML on create (sections replaced, not accumulated)
+- Panel width varies by scene (260px galaxy map, 240px planet surface, 340px station)
+- CSS classes for consistent styling: `.section`, `.section-title`, `.row`, `.label`, `.value`, `.action`
+- Color classes: `.good` (green), `.warn` (yellow), `.bad` (red)
+- Progress bars for hull/fuel/cargo (CSS `.bar-bg` / `.bar-fill`)
 
-```typescript
-interface ShipModule {
-  id: string;
-  type: 'engine' | 'weapon' | 'shield' | 'cargo' | 'sensor' | 'computer' | 'mining' | 'hull';
-  name: string;
-  tier: number;
-  stats: Record<string, number>;
-  size: number; // slot units consumed
-}
+### Ship System (Ship.ts)
+- Template-based: SHIP_TEMPLATES defines slots per ship class
+- ModuleSlot has type constraint and maxSize
+- ShipModule has stats as Record<string, number> for flexibility
+- STARTER_MODULES auto-installed into first matching empty slot
+- Helper functions: getShipSpeed, getJumpRange, getCargoCapacity, getShieldCapacity
 
-interface Ship {
-  class: ShipClass;
-  slots: { type: string; maxSize: number; module: ShipModule | null }[];
-  hull: { current: number; max: number };
-  fuel: { current: number; max: number };
-}
-```
+### GameState (GameState.ts)
+- Singleton pattern via getGameState() / newGame()
+- Owns galaxy array and player data
+- Jump logic: checks connection exists, calculates fuel cost from distance, deducts fuel
+- Discovery: visiting a system discovers all connected systems
 
-### 3. Terminal / Computer Interface
-**Challenge**: Interactive text terminal with typed commands, conversational AI feel.
-**Solution**: Custom terminal engine. Command parser splits input into command + args. Each command is a handler function. Output rendered as styled text with typewriter effect. History buffer for scrollback. Hidden commands for easter eggs.
+### Trading (inline in StationScene.ts)
+- TRADE_GOODS: 15 items with id, name, basePrice, category
+- ECONOMY_MODIFIERS: per-economy-type multipliers per category
+- Market generated on dock: base price * (1 + economy modifier + seeded variance)
+- Sell price = 75% of buy price
+- Stock is random per station (seeded)
+- Player cargo stored as CargoItem[] on PlayerData
 
-```typescript
-// Terminal command registration
-terminal.register('scan', {
-  description: 'Scan current system or target',
-  usage: 'scan [target]',
-  execute: (args, gameState) => { /* return terminal output lines */ }
-});
-```
+### Terminal (TerminalScene.ts)
+- Command parsing: split input on spaces, switch on first word
+- Commands: help, status/stat, scan [planets|asteroids], cargo, nav [routes|range], systems/sys, codex [list], clear/cls, exit/quit, hello/hi, joke
+- Output stored as TerminalLine[] with text and color
+- Renders last 30 lines
+- CRT effect: scanline overlay drawn in create()
 
-### 4. Economy Simulation
-**Challenge**: Prices should feel dynamic and responsive.
-**Solution**: Base prices per commodity per economy type. Modified by: distance from production center, random per-system variance (seeded), supply/demand shift from player trades (decays over time), and random events. Prices recalculated each time player docks.
-
-### 5. Save System
-**Challenge**: Procedural world is large but must be resumable.
-**Solution**: Save only player state + delta from procedural baseline. Galaxy regenerates from seed. Save stores: player position, inventory, ship state, discovered systems, faction reputations, completed events, modified prices, visited ruins state. Compact JSON in IndexedDB.
-
-### 6. Combat
-**Challenge**: Real-time 2D combat that feels tactical.
-**Solution**: Physics-lite system (no full rigid body sim). Ships have velocity, turn rate, weapon arcs. Shield segments (front/rear or directional). AI behaviors: aggressive, evasive, fleeing. Combat in system scene with camera zoom. Pause-to-plan option for accessibility.
+### System View Flight (SystemScene.ts)
+- Thrust-based physics: acceleration in facing direction, velocity capped, drag applied each frame
+- Rotation with A/D, thrust with W/S (reverse thrust at 50% power)
+- Interaction range: 50px from planet edge or station center
+- Nearest object tracked each frame for highlight ring and info display
+- Planet orbit angles update each frame
 
 ---
 
 ## Rendering Approach
 
-### Art Style Suggestion
-- Pixel art, 16x16 or 32x32 tile base
-- Clean, readable at multiple zoom levels
-- Palette-swap planets/ships for variety with minimal assets
-- Particle effects for engines, weapons, explosions
-- Parallax starfield backgrounds
+### Current Art: Programmatic Placeholders (BootScene.ts)
+- Ship: green triangle generated as texture
+- Star glow: white circle with alpha falloff
+- Station: gray square with blue center
+- Asteroid: brown circle
+- Pixel: 2x2 white square for particles
+- All generated via Phaser Graphics → generateTexture()
+- **Ready to be replaced with PNG sprite assets** — just swap `generateTexture` calls for `this.load.image` calls
 
 ### Camera System
-- Galaxy map: fixed zoom with scroll/drag
-- System view: follows player ship, zoom in/out
-- Ship interior: scrolls horizontally with ship length
-- Planet surface: follows player vehicle, bounded to map
-- Ruins: follows player character, room-based scrolling
+- Galaxy map: viewport offset by panel width (260px), zoom 0.3-4x, scroll/drag pan
+- System view: follows player ship via centerOn(), zoom 0.3-3x
+- Ship interior: no camera offset, full screen
+- Planet surface: viewport offset by panel width (240px), zoom 2x, centered on player
+- Terminal: full screen, no scrolling
+- Station: full screen with panel
 
 ---
 
-## Performance Considerations
-- Only generate system details when entered (lazy generation)
-- Planet surfaces generated on landing, cached for session
-- Off-screen entities culled from rendering
-- Galaxy map renders only visible region
-- Save data compressed before storage
-- Object pooling for projectiles and particles
+## Development Phase Status
+
+### Phase 1: Foundation — COMPLETE
+- [x] Project setup (Phaser 3.90 + TypeScript + Vite 8)
+- [x] Galaxy generation (Poisson disk, factions, connections)
+- [x] System generation (planets, asteroids, stations)
+- [x] Galaxy map screen (HTML panel, zoom/pan/select, jump)
+- [x] System view (fly between planets with thrust physics)
+- [x] Basic ship model with module slots and stats
+- [x] Scene transitions (warp, land, takeoff, dock, undock)
+
+### Phase 2: Core Loops — PARTIALLY COMPLETE
+- [x] Planet surface generation and top-down exploration (128x128 tiles)
+- [x] Ship interior view with rooms matching modules
+- [x] Trading system (buy/sell at stations, economy-based pricing)
+- [x] Station services (refuel, repair)
+- [ ] Mining (asteroid mining from ship, proper mineral collection with cargo)
+- [ ] Basic combat (weapons, shields, damage)
+
+### Phase 3: Depth — PARTIALLY COMPLETE
+- [x] Terminal/computer interface with commands
+- [ ] Ship modification at shipyards (buy/sell modules)
+- [ ] Bounty hunting system
+- [ ] Ruin generation and side-on exploration
+- [ ] Faction reputation affecting gameplay
+
+### Phase 4: Polish — NOT STARTED
+- [ ] Sound and music
+- [ ] UI polish and animations
+- [ ] Balancing (economy, combat, progression)
+- [ ] Save/load system
+- [ ] Tutorial / early game guidance
+
+### Phase 5: Content — NOT STARTED
+- [ ] Lore fragments and overarching story
+- [ ] More ship modules and tier progression
+- [ ] Events and encounters variety
+- [ ] NPC ships (traders, pirates, patrols)
+- [ ] Easter eggs and hidden content
 
 ---
 
-## Development Phases
-
-### Phase 1: Foundation
-- Project setup (Phaser + TypeScript + Vite)
-- Galaxy generation and map screen
-- System generation and system view (fly between planets)
-- Basic ship model with stats
-- Scene transitions
-
-### Phase 2: Core Loops
-- Planet surface generation and top-down exploration
-- Ship interior view with rooms matching modules
-- Trading system (buy/sell at stations)
-- Mining (asteroids and planet surface)
-- Basic combat (weapons, shields, destruction)
-
-### Phase 3: Depth
-- Terminal/computer interface with commands
-- Ship modification at shipyards
-- Bounty hunting system
-- Ruin generation and side-on exploration
-- Faction reputation
-
-### Phase 4: Polish
-- Sound and music
-- UI polish and animations
-- Balancing (economy, combat, progression)
-- Save/load system
-- Tutorial / early game guidance
-
-### Phase 5: Content
-- Lore fragments and overarching story
-- More ship classes and modules
-- More planet types and biomes
-- Events and encounters variety
-- Easter eggs and hidden content
-
----
-
-## Data Flow Summary
+## Data Flow
 
 ```
-Master Seed
-  -> GalaxyGenerator (star positions, types, factions)
-    -> SystemGenerator (planets, asteroids, stations per system)
-      -> PlanetGenerator (terrain, POIs per planet)
-        -> RuinGenerator (rooms, loot per ruin)
+Master Seed (random at game start)
+  → GalaxyGenerator (star positions, types, factions, connections)
+    → SystemGenerator (planets, asteroids, stations per system — all generated upfront)
+      → PlanetSurfaceScene (terrain tiles — generated on landing from system+planet seed)
 
 Player Actions
-  -> Modify Player State (inventory, position, reputation)
-  -> Modify World Deltas (prices, discovered locations, completed events)
-  -> Save = Player State + World Deltas + Master Seed
+  → Modify PlayerData (credits, cargo, fuel, hull, position, reputation, discoveries)
+  → Modify StarSystemData (discovered/visited flags)
+  → NOT YET: Save = PlayerData + world deltas + master seed
 ```
 
 ---
 
-## Third-Party Libraries (Minimal)
-- **Phaser 3**: Game engine
-- **simplex-noise**: Terrain generation
-- **seedrandom**: Deterministic RNG
-- Everything else custom to keep dependencies light
+## Dependencies
+- **phaser**: ^3.90.0 (game engine)
+- **typescript**: ^5.9.3 (dev)
+- **vite**: ^8.0.1 (dev)
+- No other runtime dependencies — SeededRandom is custom, no noise library needed yet
