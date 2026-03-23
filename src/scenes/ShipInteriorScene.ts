@@ -2,6 +2,9 @@ import Phaser from 'phaser';
 import { getGameState, GameState } from '../GameState';
 import { COLORS } from '../utils/Constants';
 import { ModuleSlot, ModuleType } from '../entities/Ship';
+import { getCargoCapacity, getCargoUsed } from '../entities/Player';
+import { getFrameManager } from '../ui/FrameManager';
+import { getAudioManager } from '../audio/AudioManager';
 
 interface Room {
   x: number;
@@ -21,7 +24,6 @@ export class ShipInteriorScene extends Phaser.Scene {
   private playerY = 0;
   private selectedRoom: Room | null = null;
   private infoText!: Phaser.GameObjects.Text;
-  private instructionText!: Phaser.GameObjects.Text;
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private wasd!: Record<string, Phaser.Input.Keyboard.Key>;
 
@@ -32,6 +34,31 @@ export class ShipInteriorScene extends Phaser.Scene {
   create(): void {
     this.state = getGameState();
     this.cameras.main.setBackgroundColor(0x0a0a15);
+
+    // Setup frame
+    const frame = getFrameManager();
+    frame.enterGameplay('Ship Interior');
+    frame.setNav([
+      { id: 'ship', label: 'Ship', active: true },
+      { id: 'system', label: 'System', shortcut: 'TAB' },
+      { id: 'terminal', label: 'Terminal', shortcut: 'T' },
+      { id: 'map', label: 'Galaxy Map', shortcut: 'M' },
+    ], (id) => {
+      switch (id) {
+        case 'system': this.scene.start('SystemScene'); break;
+        case 'terminal': this.scene.start('TerminalScene'); break;
+        case 'map': this.scene.start('GalaxyMapScene'); break;
+      }
+    });
+
+    // Update bottom bar
+    const ship = this.state.player.ship;
+    frame.updateStatus(
+      ship.hull, ship.fuel,
+      getCargoUsed(this.state.player.cargo),
+      getCargoCapacity(ship),
+      this.state.player.credits
+    );
 
     this.graphics = this.add.graphics();
 
@@ -48,10 +75,6 @@ export class ShipInteriorScene extends Phaser.Scene {
       backgroundColor: '#111122cc', padding: { x: 8, y: 6 },
       wordWrap: { width: 300 },
     }).setScrollFactor(0).setDepth(100);
-
-    this.instructionText = this.add.text(640, 690, 'WASD/Arrows to move | SPACE to interact with room | TAB to return to ship | T for terminal', {
-      fontFamily: 'monospace', fontSize: '12px', color: '#666688',
-    }).setScrollFactor(0).setDepth(100).setOrigin(0.5, 1);
 
     // Input
     this.cursors = this.input.keyboard!.createCursorKeys();
@@ -72,6 +95,8 @@ export class ShipInteriorScene extends Phaser.Scene {
     this.input.keyboard!.on('keydown-M', () => {
       this.scene.start('GalaxyMapScene');
     });
+
+    getAudioManager().setAmbience('ship_interior');
   }
 
   update(_time: number, delta: number): void {
@@ -88,7 +113,6 @@ export class ShipInteriorScene extends Phaser.Scene {
     const roomHeight = 100;
     const floorY = 400;
 
-    // Module type to room visual config
     const roomConfig: Record<ModuleType, { label: string; color: number; width: number }> = {
       engine:       { label: 'Engine Room',       color: 0x553311, width: 120 },
       weapon:       { label: 'Weapons Bay',       color: 0x551111, width: 100 },
@@ -101,21 +125,18 @@ export class ShipInteriorScene extends Phaser.Scene {
       life_support: { label: 'Life Support',       color: 0x224433, width: 100 },
     };
 
-    // Always start with bridge
     let xOffset = 100;
 
-    // Bridge (not a module slot)
+    // Bridge
     this.rooms.push({
       x: xOffset, y: floorY - roomHeight, width: 140, height: roomHeight,
       label: 'Bridge', slot: null, color: 0x223344,
     });
     xOffset += 150;
 
-    // Rooms from module slots (deduplicated by type for display, but show all)
     const seenTypes = new Set<string>();
     for (const slot of ship.slots) {
       const config = roomConfig[slot.type];
-      // Merge same-type slots visually (bigger room)
       if (seenTypes.has(slot.type)) {
         const existing = this.rooms.find(r => r.slot?.type === slot.type);
         if (existing) {
@@ -150,7 +171,6 @@ export class ShipInteriorScene extends Phaser.Scene {
     if (this.cursors.up.isDown || this.wasd.W.isDown) dy -= speed * dt;
     if (this.cursors.down.isDown || this.wasd.S.isDown) dy += speed * dt;
 
-    // Constrain to rooms (simple AABB)
     const newX = this.playerX + dx;
     const newY = this.playerY + dy;
 
@@ -163,7 +183,6 @@ export class ShipInteriorScene extends Phaser.Scene {
       }
     }
 
-    // Allow horizontal movement through doorways (same Y level)
     for (const room of this.rooms) {
       if (newX >= room.x + 10 && newX <= room.x + room.width - 10 &&
           this.playerY >= room.y + 10 && this.playerY <= room.y + room.height - 10) {
@@ -187,7 +206,6 @@ export class ShipInteriorScene extends Phaser.Scene {
   private draw(): void {
     this.graphics.clear();
 
-    // Ship hull outline
     const firstRoom = this.rooms[0];
     const lastRoom = this.rooms[this.rooms.length - 1];
     const hullLeft = firstRoom.x - 30;
@@ -195,46 +213,31 @@ export class ShipInteriorScene extends Phaser.Scene {
     const hullTop = firstRoom.y - 40;
     const hullBottom = firstRoom.y + firstRoom.height + 20;
 
-    // Hull shape
     this.graphics.lineStyle(2, 0x445566, 0.6);
     this.graphics.strokeRoundedRect(hullLeft, hullTop, hullRight - hullLeft, hullBottom - hullTop, 16);
 
-    // Rooms
     for (const room of this.rooms) {
       const isSelected = room === this.selectedRoom;
       const alpha = isSelected ? 0.8 : 0.4;
 
-      // Room floor/walls
       this.graphics.fillStyle(room.color, alpha);
       this.graphics.fillRect(room.x, room.y, room.width, room.height);
 
-      // Room border
       this.graphics.lineStyle(1, isSelected ? COLORS.ui.primary : 0x556677, isSelected ? 0.8 : 0.5);
       this.graphics.strokeRect(room.x, room.y, room.width, room.height);
 
-      // Door openings between rooms
       this.graphics.fillStyle(0x0a0a15, 1);
     }
 
-    // Room labels
-    // (Using graphics text positioning would be complex - use DOM text objects instead in future)
-
-    // Player character (simple figure)
+    // Player character
     this.graphics.fillStyle(COLORS.ui.primary, 1);
-    // Head
     this.graphics.fillCircle(this.playerX, this.playerY - 12, 5);
-    // Body
     this.graphics.lineStyle(2, COLORS.ui.primary, 1);
     this.graphics.lineBetween(this.playerX, this.playerY - 7, this.playerX, this.playerY + 5);
-    // Legs
     this.graphics.lineBetween(this.playerX, this.playerY + 5, this.playerX - 5, this.playerY + 15);
     this.graphics.lineBetween(this.playerX, this.playerY + 5, this.playerX + 5, this.playerY + 15);
-    // Arms
     this.graphics.lineBetween(this.playerX, this.playerY - 3, this.playerX - 6, this.playerY + 4);
     this.graphics.lineBetween(this.playerX, this.playerY - 3, this.playerX + 6, this.playerY + 4);
-
-    // Room name labels (draw as graphics text isn't great, we'll add text objects)
-    // For now the info panel shows room details
   }
 
   private updateUI(): void {

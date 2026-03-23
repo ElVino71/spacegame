@@ -4,6 +4,8 @@ import { COLORS, GAME_WIDTH, GAME_HEIGHT, FACTION_NAMES, ECONOMY_TYPES } from '.
 import { StationData } from '../entities/StarSystem';
 import { getCargoCapacity, getCargoUsed, CargoItem } from '../entities/Player';
 import { SeededRandom } from '../utils/SeededRandom';
+import { getFrameManager } from '../ui/FrameManager';
+import { getAudioManager } from '../audio/AudioManager';
 
 const PANEL_WIDTH = 340;
 
@@ -16,8 +18,8 @@ interface TradeGood {
 
 interface MarketListing {
   good: TradeGood;
-  buyPrice: number;   // price to buy from station
-  sellPrice: number;  // price station pays you
+  buyPrice: number;
+  sellPrice: number;
   stock: number;
 }
 
@@ -39,7 +41,6 @@ const TRADE_GOODS: TradeGood[] = [
   { id: 'rare_earth',  name: 'Rare Earth',        basePrice: 170, category: 'mineral' },
 ];
 
-// Economy type affects prices: negative = cheaper to buy, positive = more expensive
 const ECONOMY_MODIFIERS: Record<string, Record<string, number>> = {
   agricultural: { basic: -0.3, mineral: 0.1, tech: 0.2, military: 0.15, luxury: 0.1, rare: 0 },
   industrial:   { basic: 0.1, mineral: -0.2, tech: -0.15, military: -0.1, luxury: 0.2, rare: 0 },
@@ -56,9 +57,6 @@ export class StationScene extends Phaser.Scene {
   private selectedIndex = 0;
   private mode: 'market' | 'refuel' | 'menu' = 'menu';
 
-  // HTML panel
-  private panelEl!: HTMLElement;
-
   constructor() {
     super({ key: 'StationScene' });
   }
@@ -73,24 +71,35 @@ export class StationScene extends Phaser.Scene {
     this.mode = 'menu';
 
     this.generateMarket();
-    this.setupPanel();
+
+    // Setup frame
+    const frame = getFrameManager();
+    frame.enterGameplay(`Station: ${this.station.name}`);
+    frame.showPanel(PANEL_WIDTH);
+    frame.setNav([
+      { id: 'station', label: 'Station', active: true },
+      { id: 'undock', label: 'Undock', shortcut: 'ESC' },
+    ], (id) => {
+      if (id === 'undock') this.undock();
+    });
+
     this.renderPanel();
+
+    getAudioManager().setAmbience('station');
 
     // Background
     this.cameras.main.setBackgroundColor(0x080818);
 
-    // Station visual (simple interior view)
+    // Station visual
     const gfx = this.add.graphics();
     const cx = GAME_WIDTH / 2 + PANEL_WIDTH / 2;
     const cy = GAME_HEIGHT / 2;
 
-    // Station structure
     gfx.lineStyle(2, 0x445566, 0.6);
     gfx.strokeRoundedRect(cx - 250, cy - 200, 500, 400, 12);
     gfx.fillStyle(0x111128, 0.8);
     gfx.fillRoundedRect(cx - 248, cy - 198, 496, 396, 10);
 
-    // Station name
     this.add.text(cx, cy - 170, this.station.name, {
       fontFamily: 'monospace', fontSize: '20px', color: '#00aaff',
     }).setOrigin(0.5);
@@ -99,18 +108,15 @@ export class StationScene extends Phaser.Scene {
       fontFamily: 'monospace', fontSize: '12px', color: '#667788',
     }).setOrigin(0.5);
 
-    // Docking bay visual
     gfx.fillStyle(0x0a0a20, 1);
     gfx.fillRect(cx - 200, cy - 110, 400, 280);
     gfx.lineStyle(1, 0x334455, 0.5);
     gfx.strokeRect(cx - 200, cy - 110, 400, 280);
 
-    // Welcome text
     this.add.text(cx, cy - 90, 'DOCKING BAY - WELCOME CAPTAIN', {
       fontFamily: 'monospace', fontSize: '11px', color: '#00ff88',
     }).setOrigin(0.5);
 
-    // Menu items rendered in center
     this.add.text(cx, cy + 190, 'Navigate with UP/DOWN | ENTER to select | ESC to undock', {
       fontFamily: 'monospace', fontSize: '11px', color: '#445566',
     }).setOrigin(0.5);
@@ -128,7 +134,8 @@ export class StationScene extends Phaser.Scene {
   }
 
   shutdown(): void {
-    this.panelEl?.classList.remove('visible');
+    const frame = getFrameManager();
+    frame.hidePanel();
   }
 
   // ─── MARKET GENERATION ──────────────────────────────────
@@ -149,24 +156,20 @@ export class StationScene extends Phaser.Scene {
     });
   }
 
-  // ─── HTML PANEL ─────────────────────────────────────────
-
-  private setupPanel(): void {
-    this.panelEl = document.getElementById('ui-panel')!;
-    this.panelEl.innerHTML = `<div id="station-panel" style="height:100%;display:flex;flex-direction:column;"></div>`;
-    this.panelEl.style.width = PANEL_WIDTH + 'px';
-    this.panelEl.classList.add('visible');
-  }
+  // ─── PANEL ────────────────────────────────────────────
 
   private row(label: string, value: string, cls = ''): string {
     return `<div class="row"><span class="label">${label}</span><span class="value ${cls}">${value}</span></div>`;
   }
 
   private renderPanel(): void {
-    const el = document.getElementById('station-panel')!;
+    const frame = getFrameManager();
     const ship = this.state.player.ship;
     const cargoUsed = getCargoUsed(this.state.player.cargo);
     const cargoMax = getCargoCapacity(ship);
+
+    // Update bottom bar
+    frame.updateStatus(ship.hull, ship.fuel, cargoUsed, cargoMax, this.state.player.credits);
 
     let html = `<div class="section">`;
     html += `<div class="section-title">${this.station.name}</div>`;
@@ -188,14 +191,14 @@ export class StationScene extends Phaser.Scene {
       html += `<div class="section-title">Services</div>`;
       for (let i = 0; i < items.length; i++) {
         const sel = i === this.selectedIndex;
-        html += `<div style="padding:4px 6px;margin:2px 0;background:${sel ? '#1a2a3a' : 'transparent'};color:${sel ? '#00ff88' : '#aabbaa'};border-left:${sel ? '2px solid #00ff88' : '2px solid transparent'}">`;
+        html += `<div style="padding:4px 6px;margin:2px 0;background:${sel ? 'var(--frame-border-glow)' : 'transparent'};color:${sel ? 'var(--frame-accent-primary)' : 'var(--frame-text-primary)'};border-left:${sel ? '2px solid var(--frame-accent-primary)' : '2px solid transparent'}">`;
         html += `${sel ? '> ' : '  '}${items[i]}</div>`;
       }
       html += `</div>`;
     } else if (this.mode === 'market') {
       html += `<div class="section">`;
       html += `<div class="section-title">Market</div>`;
-      html += `<div style="font-size:10px;color:#556677;margin-bottom:4px">[B]uy  [V]sell  [ESC]back</div>`;
+      html += `<div style="font-size:10px;color:var(--frame-text-muted);margin-bottom:4px">[B]uy  [V]sell  [ESC]back</div>`;
 
       for (let i = 0; i < this.market.length; i++) {
         const listing = this.market[i];
@@ -203,8 +206,8 @@ export class StationScene extends Phaser.Scene {
         const owned = this.state.player.cargo.find(c => c.id === listing.good.id);
         const ownedQty = owned ? owned.quantity : 0;
 
-        html += `<div style="padding:3px 6px;margin:1px 0;background:${sel ? '#1a2a3a' : 'transparent'};border-left:${sel ? '2px solid #00ff88' : '2px solid transparent'};font-size:11px">`;
-        html += `<div style="color:${sel ? '#ffffff' : '#aabbaa'}">${listing.good.name}</div>`;
+        html += `<div style="padding:3px 6px;margin:1px 0;background:${sel ? 'var(--frame-border-glow)' : 'transparent'};border-left:${sel ? '2px solid var(--frame-accent-primary)' : '2px solid transparent'};font-size:11px">`;
+        html += `<div style="color:${sel ? 'var(--frame-text-primary)' : 'var(--frame-text-secondary)'}">${listing.good.name}</div>`;
         html += `<div class="row" style="font-size:10px"><span class="label">Buy: ${listing.buyPrice} CR</span><span class="label">Sell: ${listing.sellPrice} CR</span></div>`;
         html += `<div class="row" style="font-size:10px"><span class="label">Stock: ${listing.stock}</span><span class="label">Owned: ${ownedQty}</span></div>`;
         html += `</div>`;
@@ -231,19 +234,21 @@ export class StationScene extends Phaser.Scene {
       html += `</div>`;
     }
 
-    el.innerHTML = html;
+    frame.setPanelContent(html);
   }
 
   // ─── NAVIGATION ─────────────────────────────────────────
 
   private navigate(dir: number): void {
-    let max = 4; // menu items
+    let max = 4;
     if (this.mode === 'market') max = this.market.length;
     this.selectedIndex = (this.selectedIndex + dir + max) % max;
+    getAudioManager().playSfx('ui_navigate');
     this.renderPanel();
   }
 
   private select(): void {
+    getAudioManager().playSfx('ui_confirm');
     if (this.mode === 'menu') {
       switch (this.selectedIndex) {
         case 0: this.mode = 'market'; this.selectedIndex = 0; break;
@@ -281,6 +286,7 @@ export class StationScene extends Phaser.Scene {
 
     this.state.player.credits -= listing.buyPrice;
     listing.stock--;
+    getAudioManager().playSfx('trade_buy');
 
     const existing = this.state.player.cargo.find(c => c.id === listing.good.id);
     if (existing) {
@@ -308,6 +314,7 @@ export class StationScene extends Phaser.Scene {
     this.state.player.credits += listing.sellPrice;
     listing.stock++;
     owned.quantity--;
+    getAudioManager().playSfx('trade_sell');
 
     if (owned.quantity <= 0) {
       this.state.player.cargo = this.state.player.cargo.filter(c => c.quantity > 0);
@@ -325,6 +332,7 @@ export class StationScene extends Phaser.Scene {
 
     this.state.player.credits -= cost;
     ship.fuel.current = ship.fuel.max;
+    getAudioManager().playSfx('refuel');
     this.renderPanel();
   }
 
@@ -337,11 +345,14 @@ export class StationScene extends Phaser.Scene {
 
     this.state.player.credits -= cost;
     ship.hull.current = ship.hull.max;
+    getAudioManager().playSfx('repair');
     this.renderPanel();
   }
 
   private undock(): void {
-    this.panelEl.classList.remove('visible');
+    getAudioManager().playSfx('undock');
+    const frame = getFrameManager();
+    frame.hidePanel();
     this.scene.start('TransitionScene', {
       type: 'undock',
       targetScene: 'SystemScene',

@@ -2,6 +2,8 @@ import Phaser from 'phaser';
 import { getGameState, GameState } from '../GameState';
 import { COLORS, FACTION_NAMES } from '../utils/Constants';
 import { getCargoCapacity, getCargoUsed, getShieldCapacity, getJumpRange, getShipSpeed } from '../entities/Player';
+import { getFrameManager } from '../ui/FrameManager';
+import { getAudioManager } from '../audio/AudioManager';
 
 interface TerminalLine {
   text: string;
@@ -24,6 +26,25 @@ export class TerminalScene extends Phaser.Scene {
   create(): void {
     this.state = getGameState();
     this.cameras.main.setBackgroundColor(0x0a0a0a);
+
+    // Setup frame — minimal with just the border, terminal fills the screen
+    const frame = getFrameManager();
+    frame.enterGameplay('Ship Terminal');
+    frame.setNav([
+      { id: 'terminal', label: 'Terminal', active: true },
+      { id: 'ship', label: 'Ship', shortcut: 'ESC' },
+    ], (id) => {
+      if (id === 'ship') this.scene.start('ShipInteriorScene');
+    });
+
+    // Update bottom bar
+    const ship = this.state.player.ship;
+    frame.updateStatus(
+      ship.hull, ship.fuel,
+      getCargoUsed(this.state.player.cargo),
+      getCargoCapacity(ship),
+      this.state.player.credits
+    );
 
     // Terminal border
     const gfx = this.add.graphics();
@@ -77,15 +98,20 @@ export class TerminalScene extends Phaser.Scene {
         return;
       }
       if (event.key === 'Enter') {
+        getAudioManager().playSfx('terminal_execute');
         this.executeCommand(this.inputBuffer.trim());
         this.inputBuffer = '';
       } else if (event.key === 'Backspace') {
+        getAudioManager().playSfx('terminal_key');
         this.inputBuffer = this.inputBuffer.slice(0, -1);
       } else if (event.key.length === 1) {
+        getAudioManager().playSfx('terminal_key');
         this.inputBuffer += event.key;
       }
       this.updateInput();
     });
+
+    getAudioManager().setAmbience('terminal');
 
     this.updateOutput();
   }
@@ -96,7 +122,6 @@ export class TerminalScene extends Phaser.Scene {
   }
 
   private updateOutput(): void {
-    // Show last N lines
     const visible = this.lines.slice(-this.maxVisibleLines);
     this.outputContainer.setText(visible.map(l => l.text).join('\n'));
   }
@@ -137,6 +162,13 @@ export class TerminalScene extends Phaser.Scene {
       case 'codex':
         this.cmdCodex(args);
         break;
+      case 'theme':
+        this.cmdTheme(args);
+        break;
+      case 'audio':
+      case 'sound':
+        this.cmdAudio(args);
+        break;
       case 'clear':
       case 'cls':
         this.lines = [];
@@ -154,6 +186,7 @@ export class TerminalScene extends Phaser.Scene {
         this.cmdJoke();
         break;
       default:
+        getAudioManager().playSfx('terminal_error');
         this.printLine(`Unknown command: "${cmd}". Type "help" for available commands.`, '#ff6644');
     }
 
@@ -168,8 +201,27 @@ export class TerminalScene extends Phaser.Scene {
     this.printLine('  nav      - Navigation info (nav routes / nav range)');
     this.printLine('  systems  - Ship module status');
     this.printLine('  codex    - Lore database (codex list / codex <id>)');
+    this.printLine('  theme    - Cycle cockpit theme (theme next / theme <name>)');
+    this.printLine('  audio    - Audio controls (audio mute / audio vol <0-100>)');
     this.printLine('  clear    - Clear terminal');
     this.printLine('  exit     - Exit terminal');
+  }
+
+  private cmdTheme(args: string[]): void {
+    const frame = getFrameManager();
+    if (!args[0] || args[0] === 'next') {
+      const newTheme = frame.cycleTheme();
+      this.printLine(`Cockpit theme changed to: ${newTheme}`, '#ffcc00');
+    } else {
+      const validThemes = ['retro-scifi', 'biological', 'steampunk', 'military', 'alien'];
+      if (validThemes.includes(args[0])) {
+        frame.applyTheme(args[0] as any);
+        this.printLine(`Cockpit theme set to: ${args[0]}`, '#ffcc00');
+      } else {
+        this.printLine(`Unknown theme: "${args[0]}"`, '#ff6644');
+        this.printLine(`Available: ${validThemes.join(', ')}`);
+      }
+    }
   }
 
   private cmdStatus(): void {
@@ -301,6 +353,45 @@ export class TerminalScene extends Phaser.Scene {
           this.printLine(`  [${i + 1}] ${frags[i].slice(0, 60)}...`);
         }
       }
+    }
+  }
+
+  private cmdAudio(args: string[]): void {
+    const audio = getAudioManager();
+    if (!args[0] || args[0] === 'status') {
+      this.printLine('=== AUDIO STATUS ===', '#00aaff');
+      this.printLine(`  Master: ${audio.muted ? 'MUTED' : Math.round(audio.masterVolume * 100) + '%'}`);
+      this.printLine(`  SFX:    ${Math.round(audio.sfxVolume * 100)}%`);
+      this.printLine(`  Music:  ${Math.round(audio.musicVolume * 100)}%`);
+    } else if (args[0] === 'mute') {
+      const muted = audio.toggleMute();
+      this.printLine(muted ? 'Audio muted.' : 'Audio unmuted.', '#ffcc00');
+    } else if (args[0] === 'vol' || args[0] === 'volume') {
+      const val = parseInt(args[1]);
+      if (isNaN(val) || val < 0 || val > 100) {
+        this.printLine('Usage: audio vol <0-100>', '#ff6644');
+      } else {
+        audio.masterVolume = val / 100;
+        this.printLine(`Master volume set to ${val}%`, '#ffcc00');
+      }
+    } else if (args[0] === 'sfx') {
+      const val = parseInt(args[1]);
+      if (isNaN(val) || val < 0 || val > 100) {
+        this.printLine('Usage: audio sfx <0-100>', '#ff6644');
+      } else {
+        audio.sfxVolume = val / 100;
+        this.printLine(`SFX volume set to ${val}%`, '#ffcc00');
+      }
+    } else if (args[0] === 'music') {
+      const val = parseInt(args[1]);
+      if (isNaN(val) || val < 0 || val > 100) {
+        this.printLine('Usage: audio music <0-100>', '#ff6644');
+      } else {
+        audio.musicVolume = val / 100;
+        this.printLine(`Music volume set to ${val}%`, '#ffcc00');
+      }
+    } else {
+      this.printLine('Usage: audio [status|mute|vol|sfx|music] [0-100]', '#ff6644');
     }
   }
 

@@ -1,0 +1,892 @@
+/* ============================================================
+   STARWARD DRIFT — Unified Themed Frame System
+   ============================================================ */
+
+/* --- CSS Custom Properties (defaults = retro-scifi) --- */
+:root {
+  --frame-bg-primary: #0a0a1a;
+  --frame-bg-secondary: #0d1117;
+  --frame-border-color: #00ff88;
+  --frame-border-glow: #00ff8844;
+  --frame-accent-primary: #00ff88;
+  --frame-accent-secondary: #00aaff;
+  --frame-text-primary: #ccddcc;
+  --frame-text-secondary: #88aa88;
+  --frame-text-muted: #445566;
+  --frame-good: #00ff88;
+  --frame-warn: #ffaa00;
+  --frame-bad: #ff4444;
+  --frame-bar-hull: #00ff88;
+  --frame-bar-fuel: #ffcc00;
+  --frame-bar-cargo: #00aaff;
+  --frame-border-width: 2px;
+  --frame-border-style: solid;
+  --frame-corner-radius: 0px;
+  --frame-corner-size: 24px;
+  --frame-font-primary: 'Share Tech Mono', monospace;
+  --frame-font-heading: 'Share Tech Mono', monospace;
+  --frame-glow-intensity: 8px;
+  --frame-scanline-opacity: 0.04;
+  --frame-animation-speed: 2s;
+
+  --frame-padding: 8px;
+  --frame-top-height: 36px;
+  --frame-bottom-height: 32px;
+}
+
+/* --- Reset --- */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: #000;
+  overflow: hidden;
+  width: 100vw;
+  height: 100vh;
+  font-family: var(--frame-font-primary);
+}
+
+/* ============================================================
+   GAME FRAME — The outer bounding box
+   ============================================================ */
+
+#game-frame {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  pointer-events: none;
+  z-index: 5;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+
+#game-frame.active {
+  opacity: 1;
+}
+
+/* The outer border — always visible when frame is active */
+#game-frame::before {
+  content: '';
+  position: absolute;
+  inset: var(--frame-padding);
+  border: var(--frame-border-width) var(--frame-border-style) var(--frame-border-color);
+  border-radius: var(--frame-corner-radius);
+  box-shadow:
+    0 0 var(--frame-glow-intensity) var(--frame-border-glow),
+    inset 0 0 var(--frame-glow-intensity) var(--frame-border-glow);
+  pointer-events: none;
+  z-index: 20;
+  transition: border-color 0.6s ease, box-shadow 0.6s ease, border-radius 0.6s ease;
+}
+
+/* ============================================================
+   CORNER DECORATIONS
+   ============================================================ */
+
+.frame-corner {
+  position: absolute;
+  width: var(--frame-corner-size);
+  height: var(--frame-corner-size);
+  z-index: 25;
+  pointer-events: none;
+}
+
+.frame-corner-tl { top: var(--frame-padding); left: var(--frame-padding); }
+.frame-corner-tr { top: var(--frame-padding); right: var(--frame-padding); }
+.frame-corner-bl { bottom: var(--frame-padding); left: var(--frame-padding); }
+.frame-corner-br { bottom: var(--frame-padding); right: var(--frame-padding); }
+
+/* --- Sharp corners (retro-scifi) --- */
+.theme-retro-scifi .frame-corner::before,
+.theme-retro-scifi .frame-corner::after {
+  content: '';
+  position: absolute;
+  background: var(--frame-accent-primary);
+  box-shadow: 0 0 6px var(--frame-border-glow);
+}
+
+.theme-retro-scifi .frame-corner::before {
+  width: 100%;
+  height: 2px;
+}
+
+.theme-retro-scifi .frame-corner::after {
+  width: 2px;
+  height: 100%;
+}
+
+.theme-retro-scifi .frame-corner-tl::before,
+.theme-retro-scifi .frame-corner-tl::after { top: 0; left: 0; }
+.theme-retro-scifi .frame-corner-tr::before { top: 0; right: 0; }
+.theme-retro-scifi .frame-corner-tr::after { top: 0; right: 0; }
+.theme-retro-scifi .frame-corner-bl::before { bottom: 0; left: 0; }
+.theme-retro-scifi .frame-corner-bl::after { bottom: 0; left: 0; }
+.theme-retro-scifi .frame-corner-br::before { bottom: 0; right: 0; }
+.theme-retro-scifi .frame-corner-br::after { bottom: 0; right: 0; }
+
+/* Small tick marks at corners for retro-scifi */
+.theme-retro-scifi .frame-corner-tl { border-left: none; border-top: none; }
+.theme-retro-scifi .frame-corner-tr { transform: scaleX(-1); }
+.theme-retro-scifi .frame-corner-bl { transform: scaleY(-1); }
+.theme-retro-scifi .frame-corner-br { transform: scale(-1); }
+
+/* --- Rounded corners (biological) --- */
+.theme-biological .frame-corner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid var(--frame-border-color);
+  border-radius: 50%;
+  opacity: 0.7;
+  animation: bio-pulse var(--frame-animation-speed) ease-in-out infinite;
+  box-shadow: 0 0 12px var(--frame-border-glow);
+}
+
+.theme-biological .frame-corner::before {
+  content: '';
+  position: absolute;
+  inset: 6px;
+  border-radius: 50%;
+  background: var(--frame-accent-primary);
+  opacity: 0.3;
+  animation: bio-pulse var(--frame-animation-speed) ease-in-out infinite reverse;
+}
+
+/* --- Gear corners (steampunk) --- */
+.theme-steampunk .frame-corner {
+  width: 28px;
+  height: 28px;
+  border: 2px solid var(--frame-border-color);
+  border-radius: 50%;
+  animation: gear-spin 8s linear infinite;
+}
+
+.theme-steampunk .frame-corner::before {
+  content: '⚙';
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  color: var(--frame-accent-primary);
+  text-shadow: 0 0 4px var(--frame-border-glow);
+}
+
+.theme-steampunk .frame-corner-tr { animation-direction: reverse; }
+.theme-steampunk .frame-corner-bl { animation-direction: reverse; }
+
+/* --- Hazard corners (military) --- */
+.theme-military .frame-corner {
+  width: 20px;
+  height: 20px;
+  background: var(--frame-accent-primary);
+}
+
+.theme-military .frame-corner::before {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  background: var(--frame-bg-primary);
+}
+
+/* --- Angular corners (alien) --- */
+.theme-alien .frame-corner {
+  width: 30px;
+  height: 30px;
+}
+
+.theme-alien .frame-corner::before {
+  content: '';
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  border: 2px solid var(--frame-accent-primary);
+  clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+  animation: alien-rotate 6s linear infinite;
+  box-shadow: 0 0 14px var(--frame-border-glow);
+}
+
+.theme-alien .frame-corner::after {
+  content: '';
+  position: absolute;
+  inset: 5px;
+  background: var(--frame-accent-secondary);
+  clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+  opacity: 0.4;
+  animation: alien-rotate 6s linear infinite reverse;
+}
+
+/* ============================================================
+   EDGE DECORATIONS
+   ============================================================ */
+
+.frame-edge {
+  position: absolute;
+  z-index: 21;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.frame-edge-top, .frame-edge-bottom {
+  left: calc(var(--frame-padding) + var(--frame-corner-size) + 4px);
+  right: calc(var(--frame-padding) + var(--frame-corner-size) + 4px);
+  height: 8px;
+}
+
+.frame-edge-top { top: var(--frame-padding); }
+.frame-edge-bottom { bottom: var(--frame-padding); }
+
+.frame-edge-left, .frame-edge-right {
+  top: calc(var(--frame-padding) + var(--frame-corner-size) + 4px);
+  bottom: calc(var(--frame-padding) + var(--frame-corner-size) + 4px);
+  width: 8px;
+}
+
+.frame-edge-left { left: var(--frame-padding); }
+.frame-edge-right { right: var(--frame-padding); }
+
+/* --- Scanlines (retro-scifi) --- */
+.theme-retro-scifi .frame-edge::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    var(--frame-accent-primary) 2px,
+    var(--frame-accent-primary) 3px
+  );
+  opacity: 0.15;
+  animation: scanline-scroll 3s linear infinite;
+}
+
+.theme-retro-scifi .frame-edge-left::before,
+.theme-retro-scifi .frame-edge-right::before {
+  background: repeating-linear-gradient(
+    90deg,
+    transparent,
+    transparent 2px,
+    var(--frame-accent-primary) 2px,
+    var(--frame-accent-primary) 3px
+  );
+}
+
+/* --- Veins (biological) --- */
+.theme-biological .frame-edge::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--frame-border-color) 20%,
+    transparent 40%,
+    var(--frame-accent-secondary) 60%,
+    transparent 80%
+  );
+  background-size: 200% 100%;
+  opacity: 0.3;
+  animation: vein-flow var(--frame-animation-speed) ease-in-out infinite;
+}
+
+.theme-biological .frame-edge-left::before,
+.theme-biological .frame-edge-right::before {
+  background: linear-gradient(
+    0deg,
+    transparent 0%,
+    var(--frame-border-color) 20%,
+    transparent 40%,
+    var(--frame-accent-secondary) 60%,
+    transparent 80%
+  );
+  background-size: 100% 200%;
+  animation: vein-flow-v var(--frame-animation-speed) ease-in-out infinite;
+}
+
+/* --- Rivets (steampunk) --- */
+.theme-steampunk .frame-edge::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    90deg,
+    transparent,
+    transparent 18px,
+    var(--frame-accent-primary) 18px,
+    var(--frame-accent-primary) 22px
+  );
+  opacity: 0.4;
+  border-radius: 50%;
+}
+
+.theme-steampunk .frame-edge::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    90deg,
+    transparent 0px,
+    transparent 19px,
+    var(--frame-accent-secondary) 19px,
+    var(--frame-accent-secondary) 21px
+  );
+  opacity: 0.2;
+}
+
+.theme-steampunk .frame-edge-left::before,
+.theme-steampunk .frame-edge-right::before {
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 18px,
+    var(--frame-accent-primary) 18px,
+    var(--frame-accent-primary) 22px
+  );
+}
+
+/* --- Hazard stripes (military) --- */
+.theme-military .frame-edge::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    -45deg,
+    var(--frame-accent-primary),
+    var(--frame-accent-primary) 4px,
+    transparent 4px,
+    transparent 12px
+  );
+  opacity: 0.15;
+}
+
+/* --- Crystals (alien) --- */
+.theme-alien .frame-edge::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    90deg,
+    transparent 0px,
+    transparent 30px,
+    var(--frame-accent-primary) 30px,
+    var(--frame-accent-secondary) 33px,
+    transparent 36px
+  );
+  opacity: 0.3;
+  animation: crystal-shimmer 4s ease-in-out infinite;
+}
+
+.theme-alien .frame-edge-left::before,
+.theme-alien .frame-edge-right::before {
+  background: repeating-linear-gradient(
+    0deg,
+    transparent 0px,
+    transparent 30px,
+    var(--frame-accent-primary) 30px,
+    var(--frame-accent-secondary) 33px,
+    transparent 36px
+  );
+}
+
+/* ============================================================
+   TOP BAR
+   ============================================================ */
+
+.frame-top-bar {
+  position: absolute;
+  top: calc(var(--frame-padding) + var(--frame-border-width) + 1px);
+  left: calc(var(--frame-padding) + var(--frame-corner-size) + 4px);
+  right: calc(var(--frame-padding) + var(--frame-corner-size) + 4px);
+  height: var(--frame-top-height);
+  display: none;
+  align-items: center;
+  gap: 12px;
+  padding: 0 12px;
+  z-index: 30;
+  pointer-events: auto;
+  background: linear-gradient(180deg, var(--frame-bg-primary) 0%, transparent 100%);
+}
+
+.frame-top-bar.visible {
+  display: flex;
+}
+
+.frame-scene-title {
+  font-family: var(--frame-font-heading);
+  font-size: 13px;
+  color: var(--frame-accent-primary);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  white-space: nowrap;
+  text-shadow: 0 0 8px var(--frame-border-glow);
+}
+
+.frame-nav {
+  display: flex;
+  gap: 2px;
+  flex: 1;
+  justify-content: center;
+}
+
+.frame-nav-item {
+  padding: 4px 10px;
+  font-family: var(--frame-font-primary);
+  font-size: 11px;
+  color: var(--frame-text-secondary);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  cursor: pointer;
+  border: 1px solid transparent;
+  border-radius: var(--frame-corner-radius);
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.frame-nav-item:hover {
+  color: var(--frame-text-primary);
+  border-color: var(--frame-border-color);
+  background: var(--frame-border-glow);
+}
+
+.frame-nav-item.active {
+  color: var(--frame-accent-primary);
+  border-color: var(--frame-accent-primary);
+  background: var(--frame-border-glow);
+  text-shadow: 0 0 6px var(--frame-border-glow);
+}
+
+.frame-nav-item.disabled {
+  color: var(--frame-text-muted);
+  cursor: default;
+  opacity: 0.4;
+}
+
+.frame-nav-item.disabled:hover {
+  border-color: transparent;
+  background: none;
+}
+
+.frame-nav-shortcut {
+  font-size: 9px;
+  color: var(--frame-text-muted);
+  margin-left: 4px;
+}
+
+.frame-alert {
+  font-family: var(--frame-font-primary);
+  font-size: 11px;
+  letter-spacing: 1px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  white-space: nowrap;
+}
+
+.frame-alert.visible { opacity: 1; }
+.frame-alert-info { color: var(--frame-accent-secondary); }
+.frame-alert-warn { color: var(--frame-warn); }
+.frame-alert-danger { color: var(--frame-bad); }
+
+/* ============================================================
+   BOTTOM BAR
+   ============================================================ */
+
+.frame-bottom-bar {
+  position: absolute;
+  bottom: calc(var(--frame-padding) + var(--frame-border-width) + 1px);
+  left: calc(var(--frame-padding) + var(--frame-corner-size) + 4px);
+  right: calc(var(--frame-padding) + var(--frame-corner-size) + 4px);
+  height: var(--frame-bottom-height);
+  display: none;
+  align-items: center;
+  gap: 20px;
+  padding: 0 16px;
+  z-index: 30;
+  pointer-events: auto;
+  background: linear-gradient(0deg, var(--frame-bg-primary) 0%, transparent 100%);
+}
+
+.frame-bottom-bar.visible {
+  display: flex;
+}
+
+.frame-status-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.frame-status-label {
+  font-family: var(--frame-font-primary);
+  font-size: 10px;
+  color: var(--frame-text-muted);
+  letter-spacing: 1.5px;
+  min-width: 35px;
+}
+
+.frame-status-bar {
+  width: 80px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.frame-status-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.4s ease;
+}
+
+.frame-status-fill.hull-fill { background: var(--frame-bar-hull); }
+.frame-status-fill.fuel-fill { background: var(--frame-bar-fuel); }
+.frame-status-fill.cargo-fill { background: var(--frame-bar-cargo); }
+
+.frame-status-fill.critical {
+  animation: bar-critical 0.8s ease-in-out infinite;
+}
+
+.frame-status-fill.low {
+  opacity: 0.8;
+}
+
+.frame-status-value {
+  font-family: var(--frame-font-primary);
+  font-size: 10px;
+  color: var(--frame-text-secondary);
+  min-width: 50px;
+}
+
+.frame-status-divider {
+  width: 1px;
+  height: 16px;
+  background: var(--frame-text-muted);
+  opacity: 0.3;
+}
+
+.credits-item .frame-status-label {
+  color: var(--frame-accent-primary);
+}
+
+.credits-item .frame-status-value {
+  color: var(--frame-accent-primary);
+  font-size: 12px;
+  text-shadow: 0 0 6px var(--frame-border-glow);
+}
+
+/* ============================================================
+   LEFT PANEL (Scene Content)
+   ============================================================ */
+
+.frame-left-panel {
+  position: absolute;
+  top: calc(var(--frame-padding) + var(--frame-border-width) + var(--frame-top-height) + 4px);
+  bottom: calc(var(--frame-padding) + var(--frame-border-width) + var(--frame-bottom-height) + 4px);
+  left: calc(var(--frame-padding) + var(--frame-border-width) + 2px);
+  width: 240px;
+  background: rgba(10, 10, 28, 0.92);
+  border-right: 1px solid var(--frame-border-color);
+  z-index: 15;
+  pointer-events: auto;
+  user-select: none;
+  overflow-y: auto;
+  overflow-x: hidden;
+  transform: translateX(-110%);
+  transition: transform 0.3s ease, border-color 0.6s ease;
+}
+
+.frame-left-panel.visible {
+  transform: translateX(0);
+}
+
+.frame-panel-content {
+  padding: 12px;
+  font-family: var(--frame-font-primary);
+  color: var(--frame-text-primary);
+  font-size: 12px;
+}
+
+/* --- Panel inner styles (used by scenes) --- */
+.frame-panel-content .section {
+  margin-bottom: 6px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid color-mix(in srgb, var(--frame-border-color) 20%, transparent);
+}
+
+.frame-panel-content .section:last-child { border-bottom: none; }
+
+.frame-panel-content .section-title {
+  color: var(--frame-accent-secondary);
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+}
+
+.frame-panel-content .row {
+  display: flex;
+  justify-content: space-between;
+  line-height: 1.7;
+}
+
+.frame-panel-content .label { color: var(--frame-text-muted); }
+.frame-panel-content .value { color: var(--frame-text-primary); }
+.frame-panel-content .value.good { color: var(--frame-good); }
+.frame-panel-content .value.warn { color: var(--frame-warn); }
+.frame-panel-content .value.bad { color: var(--frame-bad); }
+
+.frame-panel-content .action {
+  color: var(--frame-accent-primary);
+  font-size: 12px;
+  margin-top: 4px;
+  line-height: 1.8;
+}
+
+.frame-panel-content .action.warn { color: var(--frame-bad); }
+.frame-panel-content .action.muted { color: var(--frame-text-muted); }
+
+.frame-panel-content .controls {
+  font-size: 10px;
+  color: var(--frame-text-muted);
+  line-height: 1.8;
+  letter-spacing: 0.5px;
+}
+
+.frame-panel-content .controls span { color: var(--frame-text-secondary); }
+
+.frame-panel-content .bar-bg {
+  width: 100%;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 2px;
+  margin: 2px 0 3px;
+}
+
+.frame-panel-content .bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+.frame-panel-content .bar-fill.hull { background: var(--frame-bar-hull); }
+.frame-panel-content .bar-fill.fuel { background: var(--frame-bar-fuel); }
+.frame-panel-content .bar-fill.cargo { background: var(--frame-bar-cargo); }
+
+/* ============================================================
+   CANVAS AREA
+   ============================================================ */
+
+.frame-canvas-area {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1;
+}
+
+.frame-canvas-area canvas {
+  display: block;
+  pointer-events: auto;
+}
+
+/* ============================================================
+   THEME-SPECIFIC FRAME OVERRIDES
+   ============================================================ */
+
+/* --- Biological: pulsing border --- */
+.theme-biological #game-frame::before {
+  animation: bio-border-pulse 3s ease-in-out infinite;
+}
+
+/* --- Steampunk: double border with inner line --- */
+.theme-steampunk #game-frame::after {
+  content: '';
+  position: absolute;
+  inset: calc(var(--frame-padding) + 5px);
+  border: 1px solid var(--frame-accent-secondary);
+  border-radius: var(--frame-corner-radius);
+  opacity: 0.3;
+  pointer-events: none;
+  z-index: 19;
+}
+
+/* --- Military: outer warning stripe --- */
+.theme-military #game-frame::after {
+  content: '';
+  position: absolute;
+  inset: calc(var(--frame-padding) - 3px);
+  border: 3px solid transparent;
+  border-image: repeating-linear-gradient(
+    -45deg,
+    var(--frame-accent-primary) 0px,
+    var(--frame-accent-primary) 6px,
+    transparent 6px,
+    transparent 12px
+  ) 3;
+  opacity: 0.12;
+  pointer-events: none;
+  z-index: 19;
+}
+
+/* --- Alien: prismatic outer glow --- */
+.theme-alien #game-frame::before {
+  animation: alien-border-shimmer 4s ease-in-out infinite;
+}
+
+.theme-alien #game-frame::after {
+  content: '';
+  position: absolute;
+  inset: calc(var(--frame-padding) + 4px);
+  border: 1px solid var(--frame-accent-secondary);
+  border-radius: var(--frame-corner-radius);
+  opacity: 0.15;
+  pointer-events: none;
+  z-index: 19;
+  animation: alien-inner-pulse 3s ease-in-out infinite;
+}
+
+/* --- Retro-scifi: full-screen scanline overlay --- */
+.theme-retro-scifi #game-frame::after {
+  content: '';
+  position: absolute;
+  inset: var(--frame-padding);
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 255, 136, var(--frame-scanline-opacity)) 2px,
+    rgba(0, 255, 136, var(--frame-scanline-opacity)) 4px
+  );
+  pointer-events: none;
+  z-index: 50;
+  animation: scanline-scroll 0.1s linear infinite;
+}
+
+/* ============================================================
+   THEME-SPECIFIC LEFT PANEL BACKGROUNDS
+   ============================================================ */
+
+.theme-biological .frame-left-panel {
+  background: rgba(13, 10, 18, 0.94);
+  border-right-color: var(--frame-border-color);
+  box-shadow: inset -4px 0 16px rgba(204, 102, 170, 0.05);
+}
+
+.theme-steampunk .frame-left-panel {
+  background: rgba(26, 18, 8, 0.94);
+  border-right-style: double;
+  border-right-width: 3px;
+}
+
+.theme-military .frame-left-panel {
+  background: rgba(10, 12, 14, 0.96);
+}
+
+.theme-alien .frame-left-panel {
+  background: rgba(6, 8, 18, 0.94);
+  box-shadow: inset -4px 0 20px rgba(102, 68, 255, 0.05);
+}
+
+/* ============================================================
+   ANIMATIONS
+   ============================================================ */
+
+@keyframes bio-pulse {
+  0%, 100% { opacity: 0.5; transform: scale(1); }
+  50% { opacity: 0.9; transform: scale(1.1); }
+}
+
+@keyframes bio-border-pulse {
+  0%, 100% {
+    box-shadow: 0 0 8px var(--frame-border-glow), inset 0 0 8px var(--frame-border-glow);
+  }
+  50% {
+    box-shadow: 0 0 20px var(--frame-border-glow), inset 0 0 16px var(--frame-border-glow);
+  }
+}
+
+@keyframes gear-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes alien-rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes alien-border-shimmer {
+  0%, 100% {
+    box-shadow:
+      0 0 10px rgba(102, 68, 255, 0.4),
+      inset 0 0 10px rgba(102, 68, 255, 0.2);
+    border-color: #6644ff;
+  }
+  33% {
+    box-shadow:
+      0 0 16px rgba(136, 170, 255, 0.5),
+      inset 0 0 12px rgba(136, 170, 255, 0.2);
+    border-color: #88aaff;
+  }
+  66% {
+    box-shadow:
+      0 0 14px rgba(204, 102, 255, 0.45),
+      inset 0 0 10px rgba(204, 102, 255, 0.2);
+    border-color: #cc66ff;
+  }
+}
+
+@keyframes alien-inner-pulse {
+  0%, 100% { opacity: 0.1; }
+  50% { opacity: 0.25; }
+}
+
+@keyframes scanline-scroll {
+  from { background-position-y: 0; }
+  to { background-position-y: 4px; }
+}
+
+@keyframes vein-flow {
+  0% { background-position-x: 0%; }
+  100% { background-position-x: 200%; }
+}
+
+@keyframes vein-flow-v {
+  0% { background-position-y: 0%; }
+  100% { background-position-y: 200%; }
+}
+
+@keyframes crystal-shimmer {
+  0%, 100% { opacity: 0.2; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes bar-critical {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* ============================================================
+   SCROLLBAR STYLING
+   ============================================================ */
+
+.frame-left-panel::-webkit-scrollbar {
+  width: 4px;
+}
+
+.frame-left-panel::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.frame-left-panel::-webkit-scrollbar-thumb {
+  background: var(--frame-text-muted);
+  border-radius: 2px;
+}
+
+/* ============================================================
+   LEGACY ui-panel support (hidden — migrated to frame-left-panel)
+   ============================================================ */
+
+#ui-panel { display: none !important; }

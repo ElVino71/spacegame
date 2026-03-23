@@ -3,6 +3,8 @@ import { getGameState, GameState } from '../GameState';
 import { COLORS, GALAXY_BOUNDS, FACTION_NAMES, GAME_WIDTH, GAME_HEIGHT } from '../utils/Constants';
 import { StarSystemData } from '../entities/StarSystem';
 import { getJumpRange, getShieldCapacity, getCargoCapacity, getCargoUsed, getShipSpeed } from '../entities/Player';
+import { getFrameManager } from '../ui/FrameManager';
+import { getAudioManager } from '../audio/AudioManager';
 
 const PANEL_WIDTH = 260;
 
@@ -16,13 +18,6 @@ export class GalaxyMapScene extends Phaser.Scene {
   private dragStart = { x: 0, y: 0 };
   private camStart = { x: 0, y: 0 };
 
-  // HTML panel elements
-  private panelEl!: HTMLElement;
-  private panelShip!: HTMLElement;
-  private panelLocation!: HTMLElement;
-  private panelTarget!: HTMLElement;
-  private panelControls!: HTMLElement;
-
   constructor() {
     super({ key: 'GalaxyMapScene' });
   }
@@ -30,22 +25,13 @@ export class GalaxyMapScene extends Phaser.Scene {
   create(): void {
     this.state = getGameState();
 
-    // Grab HTML panel
-    this.panelEl = document.getElementById('ui-panel')!;
-    // Rebuild panel sections (may have been replaced by another scene)
-    this.panelEl.innerHTML = `
-      <div class="section" id="panel-ship"></div>
-      <div class="section" id="panel-location"></div>
-      <div class="section" id="panel-target"></div>
-      <div class="spacer"></div>
-      <div class="section controls" id="panel-controls"></div>
-    `;
-    this.panelEl.style.width = PANEL_WIDTH + 'px';
-    this.panelShip = document.getElementById('panel-ship')!;
-    this.panelLocation = document.getElementById('panel-location')!;
-    this.panelTarget = document.getElementById('panel-target')!;
-    this.panelControls = document.getElementById('panel-controls')!;
-    this.panelEl.classList.add('visible');
+    // Setup frame
+    const frame = getFrameManager();
+    frame.enterGameplay('Galaxy Map');
+    frame.setThemeFromShip(this.state.player.ship.class);
+    frame.showPanel(PANEL_WIDTH);
+    this.setupPanelContent();
+    this.setupNav();
 
     // Camera setup — offset viewport past the panel
     this.cameras.main.setBackgroundColor(COLORS.background);
@@ -67,17 +53,58 @@ export class GalaxyMapScene extends Phaser.Scene {
     this.starGraphics = this.add.graphics();
 
     this.setupInput();
-    this.setupControls();
     this.drawGalaxy();
     this.updateUI();
+
+    getAudioManager().setAmbience('galaxy_map');
   }
 
   shutdown(): void {
-    this.panelEl?.classList.remove('visible');
+    const frame = getFrameManager();
+    frame.hidePanel();
   }
 
   update(): void {
     this.updateHover();
+  }
+
+  // ─── FRAME SETUP ──────────────────────────────────────
+
+  private setupPanelContent(): void {
+    const frame = getFrameManager();
+    frame.setPanelContent(`
+      <div class="section" id="panel-ship"></div>
+      <div class="section" id="panel-location"></div>
+      <div class="section" id="panel-target"></div>
+      <div style="flex:1"></div>
+      <div class="section controls" id="panel-controls"></div>
+    `);
+
+    // Setup controls
+    const controls = document.getElementById('panel-controls')!;
+    controls.innerHTML =
+      `<span>Click</span> Select system<br>` +
+      `<span>ENTER</span> Jump to selected<br>` +
+      `<span>SPACE</span> Enter system<br>` +
+      `<span>Scroll</span> Zoom<br>` +
+      `<span>Drag</span> Pan map<br>` +
+      `<span>ESC</span> Deselect`;
+  }
+
+  private setupNav(): void {
+    const frame = getFrameManager();
+    frame.setNav([
+      { id: 'map', label: 'Map', active: true },
+      { id: 'system', label: 'System', shortcut: 'SPACE' },
+      { id: 'ship', label: 'Ship', shortcut: 'TAB' },
+      { id: 'terminal', label: 'Terminal', shortcut: 'T' },
+    ], (id) => {
+      switch (id) {
+        case 'system': this.enterSystem(); break;
+        case 'ship': this.scene.start('ShipInteriorScene'); break;
+        case 'terminal': this.scene.start('TerminalScene'); break;
+      }
+    });
   }
 
   // ─── STARFIELD ──────────────────────────────────────────
@@ -209,6 +236,7 @@ export class GalaxyMapScene extends Phaser.Scene {
     }
 
     this.selectedSystem = closest;
+    if (closest) getAudioManager().playSfx('ui_select');
     this.drawGalaxy();
     this.updateUI();
   }
@@ -254,33 +282,46 @@ export class GalaxyMapScene extends Phaser.Scene {
     const cargoMax = getCargoCapacity(ship);
     const cargoPct = cargoMax > 0 ? Math.floor((cargoUsed / cargoMax) * 100) : 0;
 
+    // Update bottom bar status
+    const frame = getFrameManager();
+    frame.updateStatus(hull, fuel, cargoUsed, cargoMax, this.state.player.credits);
+
     // Ship section
-    this.panelShip.innerHTML =
-      `<div class="section-title">${ship.name}</div>` +
-      this.row('Class', ship.class) +
-      this.row('Hull', `${Math.floor(hull.current)}/${hull.max}`) +
-      this.bar('hull', hullPct) +
-      this.row('Fuel', `${Math.floor(fuel.current)}/${fuel.max}`) +
-      this.bar('fuel', fuelPct) +
-      this.row('Shields', `${getShieldCapacity(ship)}`) +
-      this.row('Speed', `${getShipSpeed(ship)}`) +
-      this.row('Cargo', `${cargoUsed}/${cargoMax}`) +
-      this.bar('cargo', cargoPct) +
-      this.row('Credits', `${this.state.player.credits} CR`, 'good');
+    const panelShip = document.getElementById('panel-ship');
+    if (panelShip) {
+      panelShip.innerHTML =
+        `<div class="section-title">${ship.name}</div>` +
+        this.row('Class', ship.class) +
+        this.row('Hull', `${Math.floor(hull.current)}/${hull.max}`) +
+        this.bar('hull', hullPct) +
+        this.row('Fuel', `${Math.floor(fuel.current)}/${fuel.max}`) +
+        this.bar('fuel', fuelPct) +
+        this.row('Shields', `${getShieldCapacity(ship)}`) +
+        this.row('Speed', `${getShipSpeed(ship)}`) +
+        this.row('Cargo', `${cargoUsed}/${cargoMax}`) +
+        this.bar('cargo', cargoPct) +
+        this.row('Credits', `${this.state.player.credits} CR`, 'good');
+    }
 
     // Location section
     const faction = FACTION_NAMES[current.factionIndex] ?? 'Unknown';
-    this.panelLocation.innerHTML =
-      `<div class="section-title">Location</div>` +
-      this.row('System', current.name) +
-      this.row('Star', `${current.starType}-class`) +
-      this.row('Faction', faction) +
-      this.row('Planets', `${current.planets.length}`) +
-      this.row('Belts', `${current.asteroidBelts.length}`) +
-      this.row('Station', current.station ? current.station.name : 'None') +
-      this.row('Jump Rng', `${getJumpRange(ship)}`);
+    const panelLocation = document.getElementById('panel-location');
+    if (panelLocation) {
+      panelLocation.innerHTML =
+        `<div class="section-title">Location</div>` +
+        this.row('System', current.name) +
+        this.row('Star', `${current.starType}-class`) +
+        this.row('Faction', faction) +
+        this.row('Planets', `${current.planets.length}`) +
+        this.row('Belts', `${current.asteroidBelts.length}`) +
+        this.row('Station', current.station ? current.station.name : 'None') +
+        this.row('Jump Rng', `${getJumpRange(ship)}`);
+    }
 
     // Target section
+    const panelTarget = document.getElementById('panel-target');
+    if (!panelTarget) return;
+
     const sys = this.selectedSystem ?? this.hoveredSystem;
     if (sys && sys.id !== current.id) {
       const dist = Math.hypot(current.x - sys.x, current.y - sys.y);
@@ -298,7 +339,7 @@ export class GalaxyMapScene extends Phaser.Scene {
         actionHtml = `<div class="action muted">Click to select</div>`;
       }
 
-      this.panelTarget.innerHTML =
+      panelTarget.innerHTML =
         `<div class="section-title">${this.selectedSystem ? 'Selected' : 'Hover'}</div>` +
         this.row('System', sys.name) +
         this.row('Star', `${sys.starType}-class`) +
@@ -311,26 +352,16 @@ export class GalaxyMapScene extends Phaser.Scene {
         this.row('Route', isConnected ? 'Connected' : 'No lane', isConnected ? 'good' : 'bad') +
         actionHtml;
     } else if (sys && sys.id === current.id) {
-      this.panelTarget.innerHTML =
+      panelTarget.innerHTML =
         `<div class="section-title">Selected</div>` +
         `<div class="row"><span class="label">Current system</span></div>` +
         `<div class="action">[SPACE] Enter system</div>`;
     } else {
-      this.panelTarget.innerHTML =
+      panelTarget.innerHTML =
         `<div class="section-title">Target</div>` +
         `<div class="action muted">No system selected</div>` +
         `<div class="action muted" style="margin-top:6px">Click a star to view info</div>`;
     }
-  }
-
-  private setupControls(): void {
-    this.panelControls.innerHTML =
-      `<span>Click</span> Select system<br>` +
-      `<span>ENTER</span> Jump to selected<br>` +
-      `<span>SPACE</span> Enter system<br>` +
-      `<span>Scroll</span> Zoom<br>` +
-      `<span>Drag</span> Pan map<br>` +
-      `<span>ESC</span> Deselect`;
   }
 
   // ─── ACTIONS ────────────────────────────────────────────
@@ -339,18 +370,21 @@ export class GalaxyMapScene extends Phaser.Scene {
     if (!this.selectedSystem || this.selectedSystem.id === this.state.player.currentSystemId) return;
     const targetName = this.selectedSystem.name;
     if (this.state.jumpToSystem(this.selectedSystem.id)) {
+      getAudioManager().playSfx('warp_start');
       this.selectedSystem = null;
-      this.panelEl.classList.remove('visible');
+      const frame = getFrameManager();
+      frame.hidePanel();
       this.scene.start('TransitionScene', {
         type: 'warp',
-        targetScene: 'GalaxyMapScene',
+        targetScene: 'SystemScene',
         text: `WARPING TO ${targetName.toUpperCase()}...`,
       });
     }
   }
 
   private enterSystem(): void {
-    this.panelEl.classList.remove('visible');
+    const frame = getFrameManager();
+    frame.hidePanel();
     this.scene.start('SystemScene');
   }
 }

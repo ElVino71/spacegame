@@ -2,7 +2,9 @@ import Phaser from 'phaser';
 import { getGameState, GameState } from '../GameState';
 import { COLORS, SYSTEM_BOUNDS } from '../utils/Constants';
 import { StarSystemData, PlanetData, AsteroidBeltData } from '../entities/StarSystem';
-import { getShipSpeed } from '../entities/Player';
+import { getShipSpeed, getCargoCapacity, getCargoUsed } from '../entities/Player';
+import { getFrameManager } from '../ui/FrameManager';
+import { getAudioManager } from '../audio/AudioManager';
 
 export class SystemScene extends Phaser.Scene {
   private state!: GameState;
@@ -16,9 +18,7 @@ export class SystemScene extends Phaser.Scene {
   private uiGraphics!: Phaser.GameObjects.Graphics;
 
   // UI texts
-  private systemTitle!: Phaser.GameObjects.Text;
   private infoText!: Phaser.GameObjects.Text;
-  private instructionText!: Phaser.GameObjects.Text;
   private speedText!: Phaser.GameObjects.Text;
 
   // Ship movement
@@ -41,6 +41,9 @@ export class SystemScene extends Phaser.Scene {
   // Asteroids
   private asteroids: { x: number; y: number; size: number; angle: number; orbitRadius: number; orbitSpeed: number; orbitAngle: number }[] = [];
 
+  // Audio
+  private thrustSfxCooldown = 0;
+
   constructor() {
     super({ key: 'SystemScene' });
   }
@@ -55,6 +58,22 @@ export class SystemScene extends Phaser.Scene {
     this.shipVx = 0;
     this.shipVy = 0;
     this.shipAngle = 0;
+
+    // Setup frame
+    const frame = getFrameManager();
+    frame.enterGameplay(`System: ${this.system.name}`);
+    frame.setNav([
+      { id: 'system', label: 'System', active: true },
+      { id: 'map', label: 'Galaxy Map', shortcut: 'M' },
+      { id: 'ship', label: 'Ship', shortcut: 'TAB' },
+      { id: 'terminal', label: 'Terminal', shortcut: 'T' },
+    ], (id) => {
+      switch (id) {
+        case 'map': this.scene.start('GalaxyMapScene'); break;
+        case 'ship': this.scene.start('ShipInteriorScene'); break;
+        case 'terminal': this.scene.start('TerminalScene'); break;
+      }
+    });
 
     // Camera
     this.cameras.main.setBackgroundColor(0x050510);
@@ -86,20 +105,11 @@ export class SystemScene extends Phaser.Scene {
     this.drawOrbits();
 
     // UI
-    this.systemTitle = this.add.text(640, 10, this.system.name, {
-      fontFamily: 'monospace', fontSize: '18px', color: '#ffffff',
-      backgroundColor: '#111122cc', padding: { x: 12, y: 6 },
-    }).setScrollFactor(0).setDepth(100).setOrigin(0.5, 0);
-
     this.infoText = this.add.text(10, 10, '', {
       fontFamily: 'monospace', fontSize: '13px', color: '#00ff88',
       backgroundColor: '#111122cc', padding: { x: 8, y: 6 },
       wordWrap: { width: 280 },
     }).setScrollFactor(0).setDepth(100);
-
-    this.instructionText = this.add.text(640, 690, 'WASD/Arrows to fly | SPACE to interact | M for galaxy map | TAB for ship view', {
-      fontFamily: 'monospace', fontSize: '12px', color: '#666688',
-    }).setScrollFactor(0).setDepth(100).setOrigin(0.5, 1);
 
     this.speedText = this.add.text(1270, 10, '', {
       fontFamily: 'monospace', fontSize: '13px', color: '#ffcc00',
@@ -121,12 +131,18 @@ export class SystemScene extends Phaser.Scene {
       this.scene.start('ShipInteriorScene');
     });
     this.input.keyboard!.on('keydown-SPACE', () => this.interact());
+    this.input.keyboard!.on('keydown-T', () => this.scene.start('TerminalScene'));
 
     // Zoom
     this.input.on('wheel', (_p: any, _gameObjects: any[], _deltaX: number, deltaY: number) => {
       const zoom = this.cameras.main.zoom;
       this.cameras.main.setZoom(Phaser.Math.Clamp(zoom + (deltaY > 0 ? -0.1 : 0.1), 0.3, 3));
     });
+
+    // Initial status update
+    this.updateBottomBar();
+
+    getAudioManager().setAmbience('system_flight');
   }
 
   update(_time: number, delta: number): void {
@@ -136,6 +152,17 @@ export class SystemScene extends Phaser.Scene {
     this.drawDynamicObjects();
     this.updateNearestObject();
     this.updateUI();
+  }
+
+  private updateBottomBar(): void {
+    const ship = this.state.player.ship;
+    const frame = getFrameManager();
+    frame.updateStatus(
+      ship.hull, ship.fuel,
+      getCargoUsed(this.state.player.cargo),
+      getCargoCapacity(ship),
+      this.state.player.credits
+    );
   }
 
   private getMaxOrbitRadius(): number {
@@ -177,13 +204,11 @@ export class SystemScene extends Phaser.Scene {
   private drawOrbits(): void {
     this.orbitGraphics.clear();
 
-    // Planet orbit paths
     for (const planet of this.system.planets) {
       this.orbitGraphics.lineStyle(1, 0x334455, 0.2);
       this.orbitGraphics.strokeCircle(0, 0, planet.orbitRadius);
     }
 
-    // Asteroid belt regions
     for (const belt of this.system.asteroidBelts) {
       this.orbitGraphics.lineStyle(1, 0x554433, 0.15);
       this.orbitGraphics.strokeCircle(0, 0, belt.orbitRadius - 30);
@@ -208,25 +233,17 @@ export class SystemScene extends Phaser.Scene {
       const px = Math.cos(planet.orbitAngle) * planet.orbitRadius;
       const py = Math.sin(planet.orbitAngle) * planet.orbitRadius;
 
-      // Planet body
       this.objectGraphics.fillStyle(planet.color, 1);
       this.objectGraphics.fillCircle(px, py, planet.size);
 
-      // Atmosphere glow for breathable
       if (planet.atmosphere === 'breathable') {
         this.objectGraphics.lineStyle(2, 0x88ccff, 0.3);
         this.objectGraphics.strokeCircle(px, py, planet.size + 3);
       }
 
-      // Highlight if nearest
       if (this.nearestPlanet?.id === planet.id) {
         this.objectGraphics.lineStyle(2, COLORS.ui.primary, 0.6);
         this.objectGraphics.strokeCircle(px, py, planet.size + 6);
-      }
-
-      // Name label
-      if (this.cameras.main.zoom > 0.7) {
-        // We'll skip text objects for planets for now - would need object pooling
       }
     }
 
@@ -262,7 +279,6 @@ export class SystemScene extends Phaser.Scene {
     const rotSpeed = 3.5;
     const drag = 0.98;
 
-    // Rotation
     if (this.cursors.left.isDown || this.wasd.A.isDown) {
       this.shipAngle -= rotSpeed * dt;
     }
@@ -270,7 +286,6 @@ export class SystemScene extends Phaser.Scene {
       this.shipAngle += rotSpeed * dt;
     }
 
-    // Thrust
     this.thrust = 0;
     if (this.cursors.up.isDown || this.wasd.W.isDown) {
       this.thrust = acceleration;
@@ -279,30 +294,35 @@ export class SystemScene extends Phaser.Scene {
       this.thrust = -acceleration * 0.5;
     }
 
-    // Apply thrust in ship's facing direction
+    // Engine thrust SFX
+    if (this.thrust !== 0) {
+      this.thrustSfxCooldown -= dt;
+      if (this.thrustSfxCooldown <= 0) {
+        getAudioManager().playSfx('engine_thrust');
+        this.thrustSfxCooldown = 0.12;
+      }
+    } else {
+      this.thrustSfxCooldown = 0;
+    }
+
     this.shipVx += Math.sin(this.shipAngle) * this.thrust * dt;
     this.shipVy += -Math.cos(this.shipAngle) * this.thrust * dt;
 
-    // Speed cap
     const currentSpeed = Math.sqrt(this.shipVx * this.shipVx + this.shipVy * this.shipVy);
     if (currentSpeed > maxSpeed) {
       this.shipVx = (this.shipVx / currentSpeed) * maxSpeed;
       this.shipVy = (this.shipVy / currentSpeed) * maxSpeed;
     }
 
-    // Drag
     this.shipVx *= drag;
     this.shipVy *= drag;
 
-    // Update position
     this.shipX += this.shipVx * dt;
     this.shipY += this.shipVy * dt;
 
-    // Update sprite
     this.shipSprite.setPosition(this.shipX, this.shipY);
     this.shipSprite.setRotation(this.shipAngle);
 
-    // Camera follow
     this.cameras.main.centerOn(this.shipX, this.shipY);
   }
 
@@ -321,7 +341,6 @@ export class SystemScene extends Phaser.Scene {
     this.nearStation = false;
     let closestDist = Infinity;
 
-    // Check planets
     for (const planet of this.system.planets) {
       const px = Math.cos(planet.orbitAngle) * planet.orbitRadius;
       const py = Math.sin(planet.orbitAngle) * planet.orbitRadius;
@@ -334,7 +353,6 @@ export class SystemScene extends Phaser.Scene {
       }
     }
 
-    // Check station
     if (this.system.station) {
       const st = this.system.station;
       const sx = Math.cos(st.orbitAngle) * st.orbitRadius;
@@ -351,6 +369,7 @@ export class SystemScene extends Phaser.Scene {
 
   private interact(): void {
     if (this.nearestPlanet && this.nearestPlanet.landable) {
+      getAudioManager().playSfx('land');
       this.scene.start('TransitionScene', {
         type: 'land',
         targetScene: 'PlanetSurfaceScene',
@@ -358,6 +377,7 @@ export class SystemScene extends Phaser.Scene {
         text: `LANDING ON ${this.nearestPlanet.name.toUpperCase()}...`,
       });
     } else if (this.nearStation && this.system.station) {
+      getAudioManager().playSfx('dock');
       this.scene.start('TransitionScene', {
         type: 'dock',
         targetScene: 'StationScene',
@@ -372,11 +392,11 @@ export class SystemScene extends Phaser.Scene {
     const hull = this.state.player.ship.hull;
     const speed = Math.sqrt(this.shipVx * this.shipVx + this.shipVy * this.shipVy);
 
+    // Update bottom bar periodically
+    this.updateBottomBar();
+
     this.speedText.setText(
-      `HULL: ${Math.floor(hull.current)}/${hull.max}\n` +
-      `FUEL: ${Math.floor(fuel.current)}/${fuel.max}\n` +
-      `SPEED: ${Math.floor(speed)}\n` +
-      `CR: ${this.state.player.credits}`
+      `SPEED: ${Math.floor(speed)}`
     );
 
     if (this.nearestPlanet) {

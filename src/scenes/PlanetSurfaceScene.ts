@@ -4,6 +4,8 @@ import { COLORS, GAME_WIDTH, GAME_HEIGHT } from '../utils/Constants';
 import { PlanetData } from '../entities/StarSystem';
 import { SeededRandom } from '../utils/SeededRandom';
 import { getCargoCapacity, getCargoUsed } from '../entities/Player';
+import { getFrameManager } from '../ui/FrameManager';
+import { getAudioManager } from '../audio/AudioManager';
 
 const MAP_SIZE = 128;
 const TILE_SIZE = 16;
@@ -11,18 +13,71 @@ const PANEL_WIDTH = 240;
 const MOVE_DELAY = 100; // ms between tile moves
 
 interface SurfaceTile {
-  type: 'ground' | 'rock' | 'mineral' | 'ruin_entrance' | 'settlement' | 'water' | 'lava';
+  type: 'ground' | 'rock' | 'mineral' | 'ruin_entrance' | 'settlement' | 'water' | 'lava' | 'flora' | 'fauna';
   color: number;
   walkable: boolean;
   mineralType?: string;
+  textureKey?: string; // which tile_* texture to use
+  groundVariant?: number; // 1-3 for ground tiles
+  floraType?: string; // e.g. 'tree_1', 'bush_2', 'cactus'
+  faunaType?: string; // e.g. 'critter_1', 'grazer', 'predator'
 }
+
+/** Biome-specific flora/fauna distributions per planet type */
+interface BiomeConfig {
+  floraChance: number;   // 0-1 probability of flora on a ground tile
+  faunaChance: number;   // 0-1 probability of fauna on a ground tile
+  flora: string[];       // available flora types for this biome
+  fauna: string[];       // available fauna types for this biome
+}
+
+const BIOME_CONFIGS: Record<string, BiomeConfig> = {
+  lush: {
+    floraChance: 0.15, faunaChance: 0.04,
+    flora: ['tree_1', 'tree_2', 'bush_1', 'bush_2', 'flower', 'moss', 'vine'],
+    fauna: ['critter_1', 'critter_2', 'grazer', 'predator', 'flyer', 'insect'],
+  },
+  desert: {
+    floraChance: 0.04, faunaChance: 0.01,
+    flora: ['cactus', 'bush_1'],
+    fauna: ['critter_1', 'insect'],
+  },
+  ice: {
+    floraChance: 0.05, faunaChance: 0.015,
+    flora: ['crystal_plant', 'moss'],
+    fauna: ['critter_2', 'grazer'],
+  },
+  volcanic: {
+    floraChance: 0.03, faunaChance: 0.005,
+    flora: ['mushroom', 'crystal_plant'],
+    fauna: ['insect'],
+  },
+  ocean: {
+    floraChance: 0.08, faunaChance: 0.03,
+    flora: ['moss', 'vine', 'flower'],
+    fauna: ['critter_1', 'critter_2', 'flyer'],
+  },
+  rocky: {
+    floraChance: 0.04, faunaChance: 0.01,
+    flora: ['moss', 'bush_1', 'mushroom'],
+    fauna: ['critter_1', 'insect'],
+  },
+  barren_moon: {
+    floraChance: 0, faunaChance: 0,
+    flora: [], fauna: [],
+  },
+  gas_giant: {
+    floraChance: 0, faunaChance: 0,
+    flora: [], fauna: [],
+  },
+};
 
 export class PlanetSurfaceScene extends Phaser.Scene {
   private state!: GameState;
   private planet!: PlanetData;
   private tiles: SurfaceTile[][] = [];
-  private mapGraphics!: Phaser.GameObjects.Graphics;
-  private playerGraphics!: Phaser.GameObjects.Graphics;
+  private mapRT!: Phaser.GameObjects.RenderTexture;
+  private playerSprite!: Phaser.GameObjects.Image;
   private playerX = MAP_SIZE / 2;
   private playerY = MAP_SIZE / 2;
   private lastMoveTime = 0;
@@ -30,13 +85,6 @@ export class PlanetSurfaceScene extends Phaser.Scene {
   // Input
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private wasd!: Record<string, Phaser.Input.Keyboard.Key>;
-
-  // HTML panel
-  private panelEl!: HTMLElement;
-  private panelPlanet!: HTMLElement;
-  private panelStatus!: HTMLElement;
-  private panelTile!: HTMLElement;
-  private panelControls!: HTMLElement;
 
   constructor() {
     super({ key: 'PlanetSurfaceScene' });
@@ -52,8 +100,17 @@ export class PlanetSurfaceScene extends Phaser.Scene {
     this.playerY = MAP_SIZE / 2;
     this.lastMoveTime = 0;
 
-    // HTML panel
-    this.setupPanel();
+    // Setup frame
+    const frame = getFrameManager();
+    frame.enterGameplay(`Surface: ${this.planet.name}`);
+    frame.showPanel(PANEL_WIDTH);
+    this.setupPanelContent();
+    frame.setNav([
+      { id: 'surface', label: 'Surface', active: true },
+      { id: 'liftoff', label: 'Lift Off', shortcut: 'ESC' },
+    ], (id) => {
+      if (id === 'liftoff') this.liftoff();
+    });
 
     // Camera — offset viewport for the panel
     this.cameras.main.setBackgroundColor(0x0a0a0a);
@@ -62,13 +119,14 @@ export class PlanetSurfaceScene extends Phaser.Scene {
     this.cameras.main.setBounds(0, 0, mapPixels, mapPixels);
     this.cameras.main.setZoom(2);
 
-    // Map layer (drawn once, updated only when tiles change)
-    this.mapGraphics = this.add.graphics().setDepth(0);
+    // Map render texture
+    const mapPixelsW = MAP_SIZE * TILE_SIZE;
+    this.mapRT = this.add.renderTexture(0, 0, mapPixelsW, mapPixelsW).setOrigin(0, 0).setDepth(0);
     this.generateSurface();
     this.drawMap();
 
-    // Player layer (redrawn each frame)
-    this.playerGraphics = this.add.graphics().setDepth(1);
+    // Player sprite
+    this.playerSprite = this.add.image(0, 0, 'tile_player').setOrigin(0, 0).setDepth(1);
 
     // Center camera
     this.centerCamera();
@@ -82,21 +140,17 @@ export class PlanetSurfaceScene extends Phaser.Scene {
       D: this.input.keyboard!.addKey('D'),
     };
 
-    this.input.keyboard!.on('keydown-ESC', () => {
-      this.hidePanel();
-      this.scene.start('TransitionScene', {
-        type: 'takeoff',
-        targetScene: 'SystemScene',
-        text: `LAUNCHING FROM ${this.planet.name.toUpperCase()}...`,
-      });
-    });
+    this.input.keyboard!.on('keydown-ESC', () => this.liftoff());
     this.input.keyboard!.on('keydown-SPACE', () => this.interact());
+
+    getAudioManager().setAmbience('planet_surface');
 
     this.updatePanel();
   }
 
   shutdown(): void {
-    this.hidePanel();
+    const frame = getFrameManager();
+    frame.hidePanel();
   }
 
   update(time: number): void {
@@ -104,37 +158,22 @@ export class PlanetSurfaceScene extends Phaser.Scene {
     this.drawPlayer();
   }
 
-  // ─── HTML PANEL ─────────────────────────────────────────
+  // ─── FRAME PANEL ──────────────────────────────────────
 
-  private setupPanel(): void {
-    this.panelEl = document.getElementById('ui-panel')!;
-
-    // Reuse the same panel div, replace section contents
-    this.panelEl.innerHTML = `
+  private setupPanelContent(): void {
+    const frame = getFrameManager();
+    frame.setPanelContent(`
       <div class="section" id="panel-planet"></div>
       <div class="section" id="panel-status"></div>
       <div class="section" id="panel-tile"></div>
-      <div class="spacer"></div>
+      <div style="flex:1"></div>
       <div class="section controls" id="panel-controls"></div>
-    `;
-    this.panelEl.style.width = PANEL_WIDTH + 'px';
-    this.panelEl.classList.add('visible');
+    `);
 
-    this.panelPlanet = document.getElementById('panel-planet')!;
-    this.panelStatus = document.getElementById('panel-status')!;
-    this.panelTile = document.getElementById('panel-tile')!;
-    this.panelControls = document.getElementById('panel-controls')!;
-
-    this.panelControls.innerHTML =
+    document.getElementById('panel-controls')!.innerHTML =
       `<span>WASD/Arrows</span> Move<br>` +
       `<span>SPACE</span> Interact<br>` +
       `<span>ESC</span> Lift off`;
-  }
-
-  private hidePanel(): void {
-    this.panelEl?.classList.remove('visible');
-    // Restore panel width for galaxy map
-    if (this.panelEl) this.panelEl.style.width = '260px';
   }
 
   private row(label: string, value: string, cls = ''): string {
@@ -146,8 +185,13 @@ export class PlanetSurfaceScene extends Phaser.Scene {
     const cargoUsed = getCargoUsed(this.state.player.cargo);
     const cargoMax = getCargoCapacity(ship);
 
+    // Update bottom bar
+    const frame = getFrameManager();
+    frame.updateStatus(ship.hull, ship.fuel, cargoUsed, cargoMax, this.state.player.credits);
+
     // Planet info
-    this.panelPlanet.innerHTML =
+    const panelPlanet = document.getElementById('panel-planet')!;
+    panelPlanet.innerHTML =
       `<div class="section-title">${this.planet.name}</div>` +
       this.row('Type', this.planet.type.replace('_', ' ')) +
       this.row('Atmosphere', this.planet.atmosphere) +
@@ -156,7 +200,8 @@ export class PlanetSurfaceScene extends Phaser.Scene {
       (this.planet.hasSettlement ? this.row('Settlement', 'Present', 'good') : '');
 
     // Player status
-    this.panelStatus.innerHTML =
+    const panelStatus = document.getElementById('panel-status')!;
+    panelStatus.innerHTML =
       `<div class="section-title">Status</div>` +
       this.row('Hull', `${Math.floor(ship.hull.current)}/${ship.hull.max}`) +
       this.row('Cargo', `${cargoUsed}/${cargoMax}`) +
@@ -170,6 +215,9 @@ export class PlanetSurfaceScene extends Phaser.Scene {
   private updateTilePanel(): void {
     const tile = this.tiles[this.playerY]?.[this.playerX];
     if (!tile) return;
+
+    const panelTile = document.getElementById('panel-tile');
+    if (!panelTile) return;
 
     let html = `<div class="section-title">Ground</div>`;
 
@@ -190,6 +238,14 @@ export class PlanetSurfaceScene extends Phaser.Scene {
       case 'rock':
         html += this.row('Type', 'Rock Formation');
         break;
+      case 'flora':
+        html += this.row('Type', 'Alien Flora', 'good');
+        html += this.row('Species', (tile.floraType ?? 'unknown').replace('_', ' '));
+        break;
+      case 'fauna':
+        html += this.row('Type', 'Alien Fauna', 'warn');
+        html += this.row('Species', (tile.faunaType ?? 'unknown').replace('_', ' '));
+        break;
       case 'water':
         html += this.row('Type', 'Water');
         break;
@@ -201,11 +257,14 @@ export class PlanetSurfaceScene extends Phaser.Scene {
         break;
     }
 
-    this.panelTile.innerHTML = html;
+    panelTile.innerHTML = html;
 
     // Also update position in status
-    const posRow = this.panelStatus.querySelector('.row:last-child .value');
-    if (posRow) posRow.textContent = `${this.playerX}, ${this.playerY}`;
+    const panelStatus = document.getElementById('panel-status');
+    if (panelStatus) {
+      const posRow = panelStatus.querySelector('.row:last-child .value');
+      if (posRow) posRow.textContent = `${this.playerX}, ${this.playerY}`;
+    }
   }
 
   // ─── MOVEMENT ───────────────────────────────────────────
@@ -230,6 +289,7 @@ export class PlanetSurfaceScene extends Phaser.Scene {
       this.playerX = newX;
       this.playerY = newY;
       this.lastMoveTime = time;
+      getAudioManager().playSfx('footstep');
       this.centerCamera();
       this.updateTilePanel();
     }
@@ -243,35 +303,77 @@ export class PlanetSurfaceScene extends Phaser.Scene {
 
   // ─── DRAWING ────────────────────────────────────────────
 
-  private drawMap(): void {
-    this.mapGraphics.clear();
-    for (let y = 0; y < MAP_SIZE; y++) {
-      for (let x = 0; x < MAP_SIZE; x++) {
-        const tile = this.tiles[y][x];
-        this.mapGraphics.fillStyle(tile.color, 1);
-        this.mapGraphics.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
-      }
+  /** Map tile type → texture key */
+  private getTileTexture(tile: SurfaceTile): string {
+    switch (tile.type) {
+      case 'ground':         return `tile_ground_${tile.groundVariant ?? 1}`;
+      case 'rock':           return 'tile_rock';
+      case 'mineral':        return 'tile_mineral';
+      case 'ruin_entrance':  return 'tile_ruin';
+      case 'settlement':     return 'tile_settlement';
+      case 'water':          return 'tile_water';
+      case 'lava':           return 'tile_lava';
+      case 'flora':          return `flora_${tile.floraType ?? 'bush_1'}`;
+      case 'fauna':          return `fauna_${tile.faunaType ?? 'critter_1'}`;
     }
   }
 
+  /** Whether this tile type should be tinted with the planet palette color */
+  private isTintable(type: string): boolean {
+    return type === 'ground' || type === 'rock' || type === 'flora' || type === 'fauna';
+  }
+
+  private drawMap(): void {
+    this.mapRT.clear();
+    // Use a temporary sprite for stamping tiles
+    const stamp = this.make.image({ x: 0, y: 0, key: 'tile_ground_1' }, false);
+    stamp.setOrigin(0, 0);
+
+    for (let y = 0; y < MAP_SIZE; y++) {
+      for (let x = 0; x < MAP_SIZE; x++) {
+        const tile = this.tiles[y][x];
+
+        // For flora/fauna, draw ground underneath first
+        if (tile.type === 'flora' || tile.type === 'fauna') {
+          stamp.setTexture(`tile_ground_${(tile.groundVariant ?? 1)}`);
+          stamp.setPosition(x * TILE_SIZE, y * TILE_SIZE);
+          stamp.setTint(tile.color);
+          this.mapRT.draw(stamp);
+        }
+
+        const texKey = this.getTileTexture(tile);
+        stamp.setTexture(texKey);
+        stamp.setPosition(x * TILE_SIZE, y * TILE_SIZE);
+
+        if (this.isTintable(tile.type)) {
+          stamp.setTint(tile.color);
+        } else {
+          stamp.clearTint();
+        }
+
+        this.mapRT.draw(stamp);
+      }
+    }
+
+    stamp.destroy();
+  }
+
   private drawPlayer(): void {
-    this.playerGraphics.clear();
-    const px = this.playerX * TILE_SIZE;
-    const py = this.playerY * TILE_SIZE;
-
-    // Shadow/outline
-    this.playerGraphics.fillStyle(0x000000, 0.5);
-    this.playerGraphics.fillRect(px + 2, py + 2, TILE_SIZE - 4, TILE_SIZE - 4);
-
-    // Player
-    this.playerGraphics.fillStyle(COLORS.ui.primary, 1);
-    this.playerGraphics.fillRect(px + 3, py + 3, TILE_SIZE - 6, TILE_SIZE - 6);
+    this.playerSprite.setPosition(this.playerX * TILE_SIZE, this.playerY * TILE_SIZE);
   }
 
   private redrawTile(x: number, y: number): void {
     const tile = this.tiles[y][x];
-    this.mapGraphics.fillStyle(tile.color, 1);
-    this.mapGraphics.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+    const stamp = this.make.image({ x: 0, y: 0, key: this.getTileTexture(tile) }, false);
+    stamp.setOrigin(0, 0);
+    stamp.setPosition(x * TILE_SIZE, y * TILE_SIZE);
+
+    if (this.isTintable(tile.type)) {
+      stamp.setTint(tile.color);
+    }
+
+    this.mapRT.draw(stamp);
+    stamp.destroy();
   }
 
   // ─── INTERACTION ────────────────────────────────────────
@@ -280,8 +382,10 @@ export class PlanetSurfaceScene extends Phaser.Scene {
     const tile = this.tiles[this.playerY][this.playerX];
 
     if (tile.type === 'mineral') {
+      getAudioManager().playSfx('mine');
       tile.type = 'ground';
       tile.color = 0x555544;
+      tile.groundVariant = 2;
       this.redrawTile(this.playerX, this.playerY);
       this.updateTilePanel();
     } else if (tile.type === 'ruin_entrance') {
@@ -291,6 +395,17 @@ export class PlanetSurfaceScene extends Phaser.Scene {
     }
   }
 
+  private liftoff(): void {
+    getAudioManager().playSfx('takeoff');
+    const frame = getFrameManager();
+    frame.hidePanel();
+    this.scene.start('TransitionScene', {
+      type: 'takeoff',
+      targetScene: 'SystemScene',
+      text: `LAUNCHING FROM ${this.planet.name.toUpperCase()}...`,
+    });
+  }
+
   // ─── GENERATION ─────────────────────────────────────────
 
   private generateSurface(): void {
@@ -298,18 +413,28 @@ export class PlanetSurfaceScene extends Phaser.Scene {
     const rng = new SeededRandom(system.id * 1000 + this.planet.id);
     this.tiles = [];
 
-    const palettes: Record<string, { ground: number[]; rock: number[]; }> = {
-      rocky:       { ground: [0x666655, 0x777766, 0x555544], rock: [0x444433, 0x333322] },
-      desert:      { ground: [0xccaa55, 0xbbaa44, 0xddbb66], rock: [0x998833, 0x887722] },
-      ice:         { ground: [0xaaccee, 0x99bbdd, 0xbbddff], rock: [0x6699bb, 0x5588aa] },
-      lush:        { ground: [0x338833, 0x449944, 0x337733], rock: [0x225522, 0x556644] },
-      volcanic:    { ground: [0x553322, 0x442211, 0x664433], rock: [0x331100, 0x220000] },
-      ocean:       { ground: [0x2255aa, 0x3366bb, 0x1144aa], rock: [0x336633, 0x447744] },
-      barren_moon: { ground: [0x555555, 0x666666, 0x444444], rock: [0x333333, 0x222222] },
-      gas_giant:   { ground: [0x555555, 0x666666, 0x444444], rock: [0x333333, 0x222222] },
+    // Rock colors are derived from ground colors (darkened by ~40%)
+    const darken = (c: number) => {
+      const r = Math.floor(((c >> 16) & 0xff) * 0.6);
+      const g = Math.floor(((c >> 8) & 0xff) * 0.6);
+      const b = Math.floor((c & 0xff) * 0.6);
+      return (r << 16) | (g << 8) | b;
     };
 
-    const palette = palettes[this.planet.type] ?? palettes.rocky;
+    const groundPalettes: Record<string, number[]> = {
+      rocky:       [0x666655, 0x777766, 0x555544],
+      desert:      [0xccaa55, 0xbbaa44, 0xddbb66],
+      ice:         [0xaaccee, 0x99bbdd, 0xbbddff],
+      lush:        [0x338833, 0x449944, 0x337733],
+      volcanic:    [0x553322, 0x442211, 0x664433],
+      ocean:       [0x2255aa, 0x3366bb, 0x1144aa],
+      barren_moon: [0x555555, 0x666666, 0x444444],
+      gas_giant:   [0x555555, 0x666666, 0x444444],
+    };
+
+    const ground = groundPalettes[this.planet.type] ?? groundPalettes.rocky;
+    const rock = ground.map(darken);
+    const palette = { ground, rock };
 
     for (let y = 0; y < MAP_SIZE; y++) {
       this.tiles[y] = [];
@@ -317,22 +442,33 @@ export class PlanetSurfaceScene extends Phaser.Scene {
         const noise = rng.next();
         let tile: SurfaceTile;
 
-        if (noise < 0.12) {
+        if (noise < 0.05) {
           tile = { type: 'rock', color: rng.pick(palette.rock), walkable: false };
-        } else if (noise < 0.15 && this.planet.type === 'volcanic') {
+        } else if (noise < 0.08 && this.planet.type === 'volcanic') {
           tile = { type: 'lava', color: 0xff3300, walkable: false };
-        } else if (noise < 0.15 && this.planet.type === 'ocean') {
+        } else if (noise < 0.08 && this.planet.type === 'ocean') {
           tile = { type: 'water', color: 0x1144aa, walkable: false };
         } else {
-          tile = { type: 'ground', color: rng.pick(palette.ground), walkable: true };
+          const variant = rng.int(1, 3) as 1 | 2 | 3;
+          tile = { type: 'ground', color: rng.pick(palette.ground), walkable: true, groundVariant: variant };
+
+          // Scatter flora/fauna on ground tiles based on biome
+          const biome = BIOME_CONFIGS[this.planet.type] ?? BIOME_CONFIGS.rocky;
+          const bioRoll = rng.next();
+          if (biome.flora.length > 0 && bioRoll < biome.floraChance) {
+            const floraType = rng.pick(biome.flora);
+            tile = { type: 'flora', color: rng.pick(palette.ground), walkable: true, floraType, groundVariant: variant };
+          } else if (biome.fauna.length > 0 && bioRoll < biome.floraChance + biome.faunaChance) {
+            const faunaType = rng.pick(biome.fauna);
+            tile = { type: 'fauna', color: rng.pick(palette.ground), walkable: true, faunaType, groundVariant: variant };
+          }
         }
 
         this.tiles[y][x] = tile;
       }
     }
 
-    // Minerals — bigger clusters on a bigger map
-    const mineralTypes = ['Iron', 'Copper', 'Titanium', 'Platinum', 'Crystals', 'Uranium', 'Helium-3', 'Rare Earth'];
+    // Minerals
     for (const mineral of this.planet.minerals) {
       const cx = Math.floor(mineral.x * (MAP_SIZE - 8)) + 4;
       const cy = Math.floor(mineral.y * (MAP_SIZE - 8)) + 4;

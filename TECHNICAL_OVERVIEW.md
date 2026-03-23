@@ -8,7 +8,7 @@
 - **Build**: Vite 8 (dev server on port 3000, hot reload)
 - **State Management**: Singleton GameState class with scene-based flow
 - **Data**: TypeScript constants and interfaces (no external JSON data files yet)
-- **UI**: HTML/CSS overlay panels for menus (Share Tech Mono font), Phaser canvas for game rendering
+- **UI**: Unified themed frame system (HTML/CSS) wrapping the Phaser canvas, with 5 switchable visual themes
 - **Dependencies**: Phaser only — no simplex-noise or seedrandom (custom SeededRandom implementation)
 
 ---
@@ -17,16 +17,20 @@
 
 ```
 src/
-  main.ts                    # Entry point, Phaser game config, scene registration
+  main.ts                    # Entry point, Phaser game config, frame init, scene registration
   GameState.ts               # Singleton game state (galaxy, player, jump logic)
+  ui/
+    FrameManager.ts           # Singleton managing the themed frame (top/bottom bars, left panel, corners/edges)
+    themes.ts                 # 5 theme definitions (retro-scifi, biological, steampunk, military, alien)
+    frame.css                 # Full CSS: frame layout, theme-specific decorations, animations
   scenes/
-    BootScene.ts              # Generates placeholder textures programmatically
-    GalaxyMapScene.ts         # Star map with HTML side panel, zoom/pan/select
-    SystemScene.ts            # In-system flight with thrust physics
-    ShipInteriorScene.ts      # Side-on ship rooms, walk between modules
-    PlanetSurfaceScene.ts     # Top-down 128x128 tile exploration with HTML panel
-    TerminalScene.ts          # CLI interface with command parser
-    StationScene.ts           # Station menu, trading, refuel, repair with HTML panel
+    BootScene.ts              # Generates placeholder textures, shows frame in minimal mode
+    GalaxyMapScene.ts         # Star map with frame left panel, zoom/pan/select
+    SystemScene.ts            # In-system flight with thrust physics, frame nav bar
+    ShipInteriorScene.ts      # Side-on ship rooms, walk between modules, frame nav bar
+    PlanetSurfaceScene.ts     # Top-down 128x128 tile exploration with frame left panel
+    TerminalScene.ts          # CLI interface with command parser (incl. theme command)
+    StationScene.ts           # Station menu, trading, refuel, repair with frame left panel
     TransitionScene.ts        # Animated transitions (warp, land, takeoff, dock, undock)
   generation/
     GalaxyGenerator.ts        # Poisson disk sampling, connections, faction BFS
@@ -63,8 +67,7 @@ src/
     TerminalEngine.ts         # (currently inline in TerminalScene)
     commands/                 # (currently inline in TerminalScene)
   ui/
-    HUD.ts
-    DialoguePanel.ts
+    DialoguePanel.ts          # (FrameManager.ts and themes.ts already created)
   data/
     ship-modules.json
     commodities.json
@@ -119,13 +122,28 @@ src/
 - Docking: station walls closing from top/bottom, blinking guide lights, approach stars slowing
 - All transitions fade to black before starting target scene
 
-### HTML Panel System
-- Single `#ui-panel` div in index.html, shown/hidden per scene
-- Each scene rebuilds panel innerHTML on create (sections replaced, not accumulated)
+### Unified Frame System (FrameManager.ts + frame.css)
+- **FrameManager**: Singleton class (`getFrameManager()`) managing the entire UI overlay
+- **Frame structure**: Outer border with corner/edge decorations, top bar (title + nav + alerts), bottom bar (hull/fuel/cargo/credits), left panel (scene content), canvas area
+- **Initialization**: Frame is created in `main.ts` before Phaser. Phaser canvas is parented into `frame-canvas-area` div
+- **Scene integration**: Scenes call `frame.enterGameplay(title)` or `frame.enterMinimal()`, then `frame.showPanel(width)` / `frame.hidePanel()` as needed
+- **Navigation**: `frame.setNav(items, onClick)` renders clickable tabs in top bar with keyboard shortcuts
+- **Status bar**: `frame.updateStatus(hull, fuel, cargoUsed, cargoMax, credits)` updates the persistent bottom bar
+- **Panel**: `frame.setPanelContent(html)` sets left panel innerHTML. CSS classes for styling: `.section`, `.section-title`, `.row`, `.label`, `.value`, `.action`
+- **Alerts**: `frame.showAlert(text, type)` shows temporary alerts in top-right
 - Panel width varies by scene (260px galaxy map, 240px planet surface, 340px station)
-- CSS classes for consistent styling: `.section`, `.section-title`, `.row`, `.label`, `.value`, `.action`
-- Color classes: `.good` (green), `.warn` (yellow), `.bad` (red)
-- Progress bars for hull/fuel/cargo (CSS `.bar-bg` / `.bar-fill`)
+
+### Theme System (themes.ts + frame.css)
+- **ThemeDefinition**: Interface with 25+ properties — colors, border styles, corner/edge decoration types, animation speeds, font choices
+- **5 themes**: retro-scifi, biological, steampunk, military, alien
+- **CSS custom properties**: `applyTheme()` sets `--frame-*` variables on `:root`, CSS references them throughout
+- **Body class**: `theme-<id>` class on body enables theme-specific CSS selectors for corner/edge decorations
+- **Ship mapping**: `SHIP_THEME_MAP` maps ship classes to default themes (scout→retro-scifi, freighter→steampunk, corvette/gunship→military, explorer→alien)
+- **Runtime switching**: `frame.cycleTheme()` or `frame.applyTheme(id)` — smooth CSS transitions between themes
+- **Terminal command**: `theme next` or `theme <name>` for player control
+- **Corner decorations per theme**: sharp L-brackets (retro), pulsing circles (bio), spinning gears (steampunk), solid squares (military), rotating diamonds (alien)
+- **Edge decorations per theme**: scrolling scanlines (retro), flowing veins (bio), rivet dots (steampunk), hazard stripes (military), crystal shimmer (alien)
+- **Frame-level effects**: CRT scanline overlay (retro), breathing border pulse (bio), double border line (steampunk), outer warning stripes (military), prismatic border color shift (alien)
 
 ### Ship System (Ship.ts)
 - Template-based: SHIP_TEMPLATES defines slots per ship class
@@ -150,10 +168,11 @@ src/
 
 ### Terminal (TerminalScene.ts)
 - Command parsing: split input on spaces, switch on first word
-- Commands: help, status/stat, scan [planets|asteroids], cargo, nav [routes|range], systems/sys, codex [list], clear/cls, exit/quit, hello/hi, joke
+- Commands: help, status/stat, scan [planets|asteroids], cargo, nav [routes|range], systems/sys, codex [list], theme [next|name], clear/cls, exit/quit, hello/hi, joke
 - Output stored as TerminalLine[] with text and color
 - Renders last 30 lines
 - CRT effect: scanline overlay drawn in create()
+- Theme command: cycles through all 5 themes or sets a specific one by name
 
 ### System View Flight (SystemScene.ts)
 - Thrust-based physics: acceleration in facing direction, velocity capped, drag applied each frame
@@ -177,11 +196,12 @@ src/
 
 ### Camera System
 - Galaxy map: viewport offset by panel width (260px), zoom 0.3-4x, scroll/drag pan
-- System view: follows player ship via centerOn(), zoom 0.3-3x
-- Ship interior: no camera offset, full screen
+- System view: follows player ship via centerOn(), zoom 0.3-3x, full viewport (no panel)
+- Ship interior: no camera offset, full screen (no panel)
 - Planet surface: viewport offset by panel width (240px), zoom 2x, centered on player
-- Terminal: full screen, no scrolling
-- Station: full screen with panel
+- Terminal: full screen, no scrolling (no panel)
+- Station: full screen with panel (340px)
+- Note: Frame border, top bar, and bottom bar are always visible as HTML overlays on top of the canvas
 
 ---
 
@@ -211,9 +231,11 @@ src/
 - [ ] Ruin generation and side-on exploration
 - [ ] Faction reputation affecting gameplay
 
-### Phase 4: Polish — NOT STARTED
+### Phase 4: Polish — PARTIALLY COMPLETE
+- [x] Unified themed frame system (5 themes, animated decorations, persistent status bar)
+- [x] Theme-driven UI with CSS custom properties and smooth transitions
+- [x] Consistent navigation tabs across all scenes
 - [ ] Sound and music
-- [ ] UI polish and animations
 - [ ] Balancing (economy, combat, progression)
 - [ ] Save/load system
 - [ ] Tutorial / early game guidance

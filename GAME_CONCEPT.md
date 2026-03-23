@@ -51,9 +51,10 @@ A 2D space exploration, trading, and combat game inspired by Starflight 2. The p
 ### 6. Ship Computer Terminal — IMPLEMENTED
 - Full-screen terminal interface with CRT-style scanline effect
 - Player types commands; output rendered with monospace text
-- Commands: help, status, scan, cargo, nav, systems, codex, clear, exit
+- Commands: help, status, scan, cargo, nav, systems, codex, theme, clear, exit
 - Scan shows full system breakdown (planets, minerals, stations)
 - Nav shows connected systems with distances and fuel costs
+- Theme command: `theme next` cycles themes, `theme <name>` sets specific theme
 - Easter egg commands (joke, hello)
 - Blinking cursor, command history
 
@@ -212,11 +213,45 @@ A 2D space exploration, trading, and combat game inspired by Starflight 2. The p
 ---
 
 ## UI Approach — IMPLEMENTED
-- Fixed HTML/CSS side panels for galaxy map, planet surface, and station scenes
+
+### Unified Themed Frame System
+A persistent HTML/CSS frame wraps the entire game canvas, providing a cockpit-like bounding box around the screen. The frame is visible at all times (including transitions and boot) and adapts its visual style to match the current ship's theme.
+
+**Frame Structure:**
+- **Outer border** with themed corner decorations and animated edge patterns
+- **Top bar**: Scene title, navigation tabs (clickable + keyboard shortcuts), alert area
+- **Bottom bar**: Persistent ship status — hull, fuel, cargo bars + credits display
+- **Left panel**: Slide-in scene-specific content (replaces old fixed side panels)
+- **Canvas area**: Phaser game renders inside the frame
+
+**Navigation:**
+- Top bar nav tabs provide consistent access to Map, System, Ship, Terminal across scenes
+- Each tab shows its keyboard shortcut
+- Active scene highlighted, clickable for scene switching
+
+### Theming System — IMPLEMENTED
+5 visual themes driven by CSS custom properties, each with unique character:
+
+| Theme | Ship Class | Colors | Corner Decor | Edge Decor | Special Effects |
+|-------|-----------|--------|-------------|------------|-----------------|
+| **Retro Sci-Fi** | Scout | Green/cyan on dark | Sharp L-brackets with glow | Scrolling scanlines | CRT scanline overlay, neon glow |
+| **Biological** | — | Pink/purple/amber | Pulsing organic nodes | Flowing vein patterns | Breathing border pulse, soft glow |
+| **Steampunk** | Freighter | Gold/copper/brown | Spinning gear icons | Rivet dot patterns | Double border, inner line |
+| **Military** | Corvette, Gunship | Orange/gray on dark | Solid hazard squares | Diagonal hazard stripes | Outer warning stripe band |
+| **Alien** | Explorer | Violet/cyan/white | Rotating diamond shapes | Crystal shimmer bars | Prismatic border color shift |
+
+- Theme auto-applied based on ship class (`SHIP_THEME_MAP` in `themes.ts`)
+- Can be manually cycled via terminal command: `theme next` or `theme <name>`
+- All UI elements (panel borders, text colors, bar fills, selection highlights) respond to theme
+- Smooth CSS transitions when switching themes
+
+### UI Technology
 - Share Tech Mono font for clean sci-fi aesthetic
-- Phaser canvas for game rendering, HTML overlay for UI text
-- Panels show ship status, location info, contextual details
-- Color-coded values (green/yellow/red) and progress bars for hull/fuel/cargo
+- Phaser canvas for game rendering, HTML/CSS overlay for all UI text and menus
+- CSS custom properties (`--frame-*`) drive all theming — 25+ variables per theme
+- Panel content uses `.section`, `.section-title`, `.row`, `.label`, `.value`, `.action` classes
+- Color classes: `.good`, `.warn`, `.bad` map to theme-appropriate colors
+- Progress bars for hull/fuel/cargo with theme-colored fills and critical/low animations
 
 ---
 

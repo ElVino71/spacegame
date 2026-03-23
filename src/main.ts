@@ -8,12 +8,17 @@ import { TerminalScene } from './scenes/TerminalScene';
 import { StationScene } from './scenes/StationScene';
 import { TransitionScene } from './scenes/TransitionScene';
 import { GAME_WIDTH, GAME_HEIGHT } from './utils/Constants';
+import { getFrameManager } from './ui/FrameManager';
+
+// Initialize the frame system first
+const frame = getFrameManager();
+frame.init();
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
   width: GAME_WIDTH,
   height: GAME_HEIGHT,
-  parent: document.body,
+  parent: frame.getCanvasArea(),
   pixelArt: true,
   roundPixels: true,
   antialias: false,

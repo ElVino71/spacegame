@@ -1,5 +1,7 @@
 import Phaser from 'phaser';
 import { GAME_WIDTH, GAME_HEIGHT, COLORS } from '../utils/Constants';
+import { getFrameManager } from '../ui/FrameManager';
+import { getAudioManager } from '../audio/AudioManager';
 
 export type TransitionType = 'warp' | 'land' | 'takeoff' | 'dock' | 'undock';
 
@@ -29,9 +31,12 @@ export class TransitionScene extends Phaser.Scene {
   }
 
   create(): void {
-    // Hide any HTML panel
-    const panel = document.getElementById('ui-panel');
-    if (panel) panel.classList.remove('visible');
+    // Frame: minimal mode (border visible, no bars/panel)
+    const frame = getFrameManager();
+    frame.enterMinimal();
+
+    // Fade out ambient music during transitions
+    getAudioManager().stopAmbience(0.5);
 
     this.cameras.main.setViewport(0, 0, GAME_WIDTH, GAME_HEIGHT);
     this.cameras.main.setBackgroundColor(0x000000);
@@ -106,15 +111,11 @@ export class TransitionScene extends Phaser.Scene {
     const cy = GAME_HEIGHT / 2;
     const progress = Math.min(this.elapsed / WARP_DURATION, 1);
 
-    // Acceleration curve: slow start, fast middle, slow end
     const speedMult = Math.sin(progress * Math.PI) * 8 + 0.5;
 
-    // Tunnel vignette
-    const vignetteRadius = 300 - progress * 100;
     this.graphics.fillStyle(0x000022, 0.02);
     this.graphics.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
 
-    // Blue/white streaks from center
     for (const star of this.stars) {
       star.z -= star.speed * speedMult * delta * 0.8;
       if (star.z <= 1) {
@@ -128,13 +129,10 @@ export class TransitionScene extends Phaser.Scene {
 
       if (sx < -10 || sx > GAME_WIDTH + 10 || sy < -10 || sy > GAME_HEIGHT + 10) continue;
 
-      // Trail length based on speed
-      const trailLen = Math.min(speedMult * 4, 40) / (star.z * 0.005 + 0.5);
       const prevZ = star.z + star.speed * speedMult * delta * 0.8;
       const px = cx + star.x / prevZ * 400;
       const py = cy + star.y / prevZ * 400;
 
-      // Color shifts from white to blue as speed increases
       const brightness = Math.min(1, 800 / star.z);
       const blueShift = Math.min(speedMult / 6, 1);
       const r = Math.floor(200 * brightness * (1 - blueShift * 0.6));
@@ -146,7 +144,6 @@ export class TransitionScene extends Phaser.Scene {
       this.graphics.lineBetween(sx, sy, px, py);
     }
 
-    // Central glow
     const glowAlpha = 0.05 + speedMult * 0.02;
     this.graphics.fillStyle(0x4488ff, glowAlpha);
     this.graphics.fillCircle(cx, cy, 80 + speedMult * 15);
@@ -161,11 +158,9 @@ export class TransitionScene extends Phaser.Scene {
     const cy = GAME_HEIGHT / 2;
     const progress = Math.min(this.elapsed / LAND_DURATION, 1);
 
-    // Atmosphere entry — orange/red streaks on the sides, planet growing below
-    const heatPhase = Math.min(progress * 2, 1); // first half = heat
-    const descentPhase = Math.max((progress - 0.3) / 0.7, 0); // second part = descent
+    const heatPhase = Math.min(progress * 2, 1);
+    const descentPhase = Math.max((progress - 0.3) / 0.7, 0);
 
-    // Atmospheric particles streaming upward (we're going down)
     for (const star of this.stars) {
       star.y += star.speed * delta * (2 + heatPhase * 6);
       if (star.y > GAME_HEIGHT + 20) {
@@ -175,7 +170,6 @@ export class TransitionScene extends Phaser.Scene {
 
       const streakLen = 3 + heatPhase * 15;
 
-      // Heat color during entry
       if (heatPhase > 0.2 && heatPhase < 0.9) {
         const heat = Math.sin((heatPhase - 0.2) / 0.7 * Math.PI);
         const r = Math.floor(255 * heat);
@@ -190,7 +184,6 @@ export class TransitionScene extends Phaser.Scene {
       }
     }
 
-    // Heat shield glow around ship
     if (heatPhase > 0.2 && heatPhase < 0.9) {
       const heat = Math.sin((heatPhase - 0.2) / 0.7 * Math.PI);
       this.graphics.fillStyle(0xff6622, heat * 0.15);
@@ -199,7 +192,6 @@ export class TransitionScene extends Phaser.Scene {
       this.graphics.fillCircle(cx, cy - 40, 100 + heat * 40);
     }
 
-    // Planet surface approaching from below
     if (descentPhase > 0) {
       const surfaceY = GAME_HEIGHT + 100 - descentPhase * 250;
       this.graphics.fillStyle(0x334422, 0.6 * descentPhase);
@@ -207,7 +199,6 @@ export class TransitionScene extends Phaser.Scene {
       this.graphics.lineStyle(2, 0x556633, 0.3 * descentPhase);
       this.graphics.lineBetween(0, surfaceY, GAME_WIDTH, surfaceY);
 
-      // Surface detail lines
       for (let i = 0; i < 8; i++) {
         const lx = (i / 8) * GAME_WIDTH + descentPhase * 30;
         this.graphics.lineStyle(1, 0x445522, 0.2 * descentPhase);
@@ -215,10 +206,9 @@ export class TransitionScene extends Phaser.Scene {
       }
     }
 
-    // Simple ship silhouette
     this.graphics.fillStyle(0x88aaaa, 0.6);
-    this.graphics.fillTriangle(cx, cy - 50, cx - 15, cy - 20, cx + 15, cy - 20);
-    this.graphics.fillRect(cx - 10, cy - 20, 20, 25);
+    this.graphics.fillRect(cx - 10, cy - 45, 20, 25);
+    this.graphics.fillTriangle(cx, cy + 5, cx - 15, cy - 20, cx + 15, cy - 20);
   }
 
   // ─── TAKEOFF EFFECT ─────────────────────────────────────
@@ -228,11 +218,9 @@ export class TransitionScene extends Phaser.Scene {
     const cy = GAME_HEIGHT / 2;
     const progress = Math.min(this.elapsed / LAND_DURATION, 1);
 
-    // Reverse of landing — surface receding, then atmosphere exit
     const ascentPhase = Math.min(progress * 1.5, 1);
     const exitPhase = Math.max((progress - 0.5) / 0.5, 0);
 
-    // Surface receding below
     if (ascentPhase < 1) {
       const surfaceY = GAME_HEIGHT - 150 + ascentPhase * 300;
       this.graphics.fillStyle(0x334422, 0.6 * (1 - ascentPhase));
@@ -241,7 +229,6 @@ export class TransitionScene extends Phaser.Scene {
       this.graphics.lineBetween(0, surfaceY, GAME_WIDTH, surfaceY);
     }
 
-    // Particles streaming downward (we're going up)
     for (const star of this.stars) {
       star.y -= star.speed * delta * (1 + ascentPhase * 4);
       if (star.y < -20) {
@@ -254,19 +241,16 @@ export class TransitionScene extends Phaser.Scene {
       this.graphics.lineBetween(star.x, star.y, star.x, star.y + streakLen);
     }
 
-    // Engine glow
     const engineGlow = 0.3 + ascentPhase * 0.5;
     this.graphics.fillStyle(0xff8833, engineGlow * 0.3);
     this.graphics.fillCircle(cx, cy + 20, 20 + ascentPhase * 15);
     this.graphics.fillStyle(0xffcc66, engineGlow * 0.2);
     this.graphics.fillCircle(cx, cy + 15, 8 + ascentPhase * 5);
 
-    // Ship silhouette
     this.graphics.fillStyle(0x88aaaa, 0.6);
-    this.graphics.fillTriangle(cx, cy - 50, cx - 15, cx - 20, cx + 15, cy - 20);
+    this.graphics.fillTriangle(cx, cy - 50, cx - 15, cy - 20, cx + 15, cy - 20);
     this.graphics.fillRect(cx - 10, cy - 20, 20, 25);
 
-    // Stars appearing as we exit atmosphere
     if (exitPhase > 0) {
       this.graphics.fillStyle(0xffffff, exitPhase * 0.3);
       for (let i = 0; i < 30; i++) {
@@ -284,15 +268,12 @@ export class TransitionScene extends Phaser.Scene {
     const cy = GAME_HEIGHT / 2;
     const progress = Math.min(this.elapsed / 1400, 1);
 
-    // Station structure closing in
     const gateOpen = 1 - progress;
 
-    // Station walls
     this.graphics.fillStyle(0x223344, 0.8);
     this.graphics.fillRect(0, 0, GAME_WIDTH, cy - 120 * gateOpen);
     this.graphics.fillRect(0, cy + 120 * gateOpen, GAME_WIDTH, GAME_HEIGHT);
 
-    // Docking lights
     const blink = Math.sin(this.elapsed * 0.01) > 0;
     for (let i = 0; i < 6; i++) {
       const lx = GAME_WIDTH * (i + 0.5) / 6;
@@ -301,12 +282,10 @@ export class TransitionScene extends Phaser.Scene {
       this.graphics.fillCircle(lx, cy + 120 * gateOpen, 3);
     }
 
-    // Guide beams
     this.graphics.lineStyle(1, 0x00ff88, 0.1 + progress * 0.2);
     this.graphics.lineBetween(cx - 100, 0, cx - 30, cy);
     this.graphics.lineBetween(cx + 100, 0, cx + 30, cy);
 
-    // Approach stars slowing
     for (const star of this.stars) {
       star.z -= star.speed * delta * 0.3 * gateOpen;
       if (star.z <= 1) star.z = 500;

@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm init:*)",
+      "Bash(npm install:*)",
+      "Bash(cd:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npx vite:*)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000/)",
+      "Bash(ls:*)",
+      "Bash(find /c/Development/Code/paul/game2/assets -type f -name *)",
+      "Bash(grep -E \"\\\\.\\(md|txt\\)$\")",
+      "Bash(node scripts/generate-tiles.js)",
+      "Bash(node:*)"
+    ]
+  }
+}

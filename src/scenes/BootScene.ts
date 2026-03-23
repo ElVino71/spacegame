@@ -1,5 +1,7 @@
 import Phaser from 'phaser';
 import { COLORS, GAME_WIDTH, GAME_HEIGHT } from '../utils/Constants';
+import { getFrameManager } from '../ui/FrameManager';
+import { getAudioManager } from '../audio/AudioManager';
 
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -7,6 +9,9 @@ export class BootScene extends Phaser.Scene {
   }
 
   preload(): void {
+    const frame = getFrameManager();
+    frame.enterMinimal();
+
     // Create loading bar
     const width = this.cameras.main.width;
     const height = this.cameras.main.height;
@@ -36,9 +41,36 @@ export class BootScene extends Phaser.Scene {
 
     // Generate placeholder textures programmatically
     this.createPlaceholderTextures();
+
+    // Load tile PNGs (editable by user in assets/tiles/)
+    const tileNames = ['ground_1', 'ground_2', 'ground_3', 'rock', 'mineral', 'ruin', 'settlement', 'water', 'lava', 'player'];
+    for (const name of tileNames) {
+      this.load.image(`tile_${name}`, `assets/tiles/${name}.png`);
+    }
+
+    // Load flora tiles
+    const floraNames = ['tree_1', 'tree_2', 'bush_1', 'bush_2', 'mushroom', 'crystal_plant', 'cactus', 'flower', 'moss', 'vine'];
+    for (const name of floraNames) {
+      this.load.image(`flora_${name}`, `assets/tiles/flora/${name}.png`);
+    }
+
+    // Load fauna tiles
+    const faunaNames = ['critter_1', 'critter_2', 'grazer', 'predator', 'flyer', 'insect'];
+    for (const name of faunaNames) {
+      this.load.image(`fauna_${name}`, `assets/tiles/fauna/${name}.png`);
+    }
   }
 
   create(): void {
+    // Initialize audio on first user interaction (required by browsers)
+    const initAudio = () => {
+      getAudioManager();
+      document.removeEventListener('click', initAudio);
+      document.removeEventListener('keydown', initAudio);
+    };
+    document.addEventListener('click', initAudio);
+    document.addEventListener('keydown', initAudio);
+
     this.scene.start('GalaxyMapScene');
   }
 
