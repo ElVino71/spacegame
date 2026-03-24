@@ -12,6 +12,7 @@ type SfxName =
   | 'dock' | 'undock'
   | 'engine_thrust'
   | 'footstep'
+  | 'rover_move'
   | 'mine'
   | 'terminal_key' | 'terminal_execute' | 'terminal_error'
   | 'trade_buy' | 'trade_sell' | 'refuel' | 'repair';
@@ -130,6 +131,7 @@ export class AudioManager {
         case 'undock':        this.synthDock(ctx); break;
         case 'engine_thrust': this.synthThrust(ctx); break;
         case 'footstep':      this.synthFootstep(ctx); break;
+        case 'rover_move':    this.synthRoverMove(ctx); break;
         case 'mine':          this.synthMine(ctx); break;
         case 'terminal_key':  this.synthTerminalKey(ctx); break;
         case 'terminal_execute': this.synthConfirm(ctx); break;
@@ -411,6 +413,40 @@ export class AudioManager {
     osc.connect(gain).connect(this.sfxGain!);
     osc.start(t);
     osc.stop(t + 0.06);
+  }
+
+  private synthRoverMove(ctx: AudioContext): void {
+    const t = ctx.currentTime;
+    // Low engine rumble
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(55 + Math.random() * 15, t);
+    osc.frequency.exponentialRampToValueAtTime(45, t + 0.1);
+    gain.gain.setValueAtTime(0.06, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.value = 200;
+    osc.connect(filter).connect(gain).connect(this.sfxGain!);
+    osc.start(t);
+    osc.stop(t + 0.1);
+    // Tread crunch (short noise burst)
+    const buf = ctx.createBuffer(1, ctx.sampleRate * 0.05, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * 0.3;
+    const noise = ctx.createBufferSource();
+    noise.buffer = buf;
+    const nGain = ctx.createGain();
+    nGain.gain.setValueAtTime(0.04, t);
+    nGain.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
+    const nFilter = ctx.createBiquadFilter();
+    nFilter.type = 'bandpass';
+    nFilter.frequency.value = 800;
+    nFilter.Q.value = 1.5;
+    noise.connect(nFilter).connect(nGain).connect(this.sfxGain!);
+    noise.start(t);
+    noise.stop(t + 0.05);
   }
 
   private synthMine(ctx: AudioContext): void {

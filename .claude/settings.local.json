@@ -11,7 +11,8 @@
       "Bash(find /c/Development/Code/paul/game2/assets -type f -name *)",
       "Bash(grep -E \"\\\\.\\(md|txt\\)$\")",
       "Bash(node scripts/generate-tiles.js)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(npm run:*)"
     ]
   }
 }

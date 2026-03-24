@@ -22,7 +22,6 @@
   --frame-border-width: 2px;
   --frame-border-style: solid;
   --frame-corner-radius: 0px;
-  --frame-corner-size: 24px;
   --frame-font-primary: 'Share Tech Mono', monospace;
   --frame-font-heading: 'Share Tech Mono', monospace;
   --frame-glow-intensity: 8px;
@@ -30,6 +29,10 @@
   --frame-animation-speed: 2s;
 
   --frame-padding: 8px;
+  --frame-tile-size: 96px;
+  --frame-edge-h-width: 768px;
+  --frame-edge-v-height: 768px;
+  --frame-content-inset: 18px;  /* visible border thickness at 3× scale */
   --frame-top-height: 36px;
   --frame-bottom-height: 32px;
 }
@@ -64,161 +67,62 @@ body {
   opacity: 1;
 }
 
-/* The outer border — always visible when frame is active */
+/* Glow layer — sits behind the tile border for ambient glow effect */
 #game-frame::before {
   content: '';
   position: absolute;
   inset: var(--frame-padding);
-  border: var(--frame-border-width) var(--frame-border-style) var(--frame-border-color);
-  border-radius: var(--frame-corner-radius);
+  border: none;
+  border-radius: 0;
   box-shadow:
     0 0 var(--frame-glow-intensity) var(--frame-border-glow),
     inset 0 0 var(--frame-glow-intensity) var(--frame-border-glow);
   pointer-events: none;
   z-index: 20;
-  transition: border-color 0.6s ease, box-shadow 0.6s ease, border-radius 0.6s ease;
+  transition: box-shadow 0.6s ease;
 }
 
 /* ============================================================
-   CORNER DECORATIONS
+   CORNER DECORATIONS (tile-based)
    ============================================================ */
 
 .frame-corner {
   position: absolute;
-  width: var(--frame-corner-size);
-  height: var(--frame-corner-size);
+  width: var(--frame-tile-size);
+  height: var(--frame-tile-size);
   z-index: 25;
   pointer-events: none;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  background-size: var(--frame-tile-size) var(--frame-tile-size);
+  background-repeat: no-repeat;
 }
 
-.frame-corner-tl { top: var(--frame-padding); left: var(--frame-padding); }
-.frame-corner-tr { top: var(--frame-padding); right: var(--frame-padding); }
-.frame-corner-bl { bottom: var(--frame-padding); left: var(--frame-padding); }
-.frame-corner-br { bottom: var(--frame-padding); right: var(--frame-padding); }
-
-/* --- Sharp corners (retro-scifi) --- */
-.theme-retro-scifi .frame-corner::before,
-.theme-retro-scifi .frame-corner::after {
-  content: '';
-  position: absolute;
-  background: var(--frame-accent-primary);
-  box-shadow: 0 0 6px var(--frame-border-glow);
+.frame-corner-tl {
+  top: var(--frame-padding);
+  left: var(--frame-padding);
 }
 
-.theme-retro-scifi .frame-corner::before {
-  width: 100%;
-  height: 2px;
+.frame-corner-tr {
+  top: var(--frame-padding);
+  right: var(--frame-padding);
+  transform: scaleX(-1);
 }
 
-.theme-retro-scifi .frame-corner::after {
-  width: 2px;
-  height: 100%;
+.frame-corner-bl {
+  bottom: var(--frame-padding);
+  left: var(--frame-padding);
+  transform: scaleY(-1);
 }
 
-.theme-retro-scifi .frame-corner-tl::before,
-.theme-retro-scifi .frame-corner-tl::after { top: 0; left: 0; }
-.theme-retro-scifi .frame-corner-tr::before { top: 0; right: 0; }
-.theme-retro-scifi .frame-corner-tr::after { top: 0; right: 0; }
-.theme-retro-scifi .frame-corner-bl::before { bottom: 0; left: 0; }
-.theme-retro-scifi .frame-corner-bl::after { bottom: 0; left: 0; }
-.theme-retro-scifi .frame-corner-br::before { bottom: 0; right: 0; }
-.theme-retro-scifi .frame-corner-br::after { bottom: 0; right: 0; }
-
-/* Small tick marks at corners for retro-scifi */
-.theme-retro-scifi .frame-corner-tl { border-left: none; border-top: none; }
-.theme-retro-scifi .frame-corner-tr { transform: scaleX(-1); }
-.theme-retro-scifi .frame-corner-bl { transform: scaleY(-1); }
-.theme-retro-scifi .frame-corner-br { transform: scale(-1); }
-
-/* --- Rounded corners (biological) --- */
-.theme-biological .frame-corner {
-  width: 36px;
-  height: 36px;
-  border: 3px solid var(--frame-border-color);
-  border-radius: 50%;
-  opacity: 0.7;
-  animation: bio-pulse var(--frame-animation-speed) ease-in-out infinite;
-  box-shadow: 0 0 12px var(--frame-border-glow);
-}
-
-.theme-biological .frame-corner::before {
-  content: '';
-  position: absolute;
-  inset: 6px;
-  border-radius: 50%;
-  background: var(--frame-accent-primary);
-  opacity: 0.3;
-  animation: bio-pulse var(--frame-animation-speed) ease-in-out infinite reverse;
-}
-
-/* --- Gear corners (steampunk) --- */
-.theme-steampunk .frame-corner {
-  width: 28px;
-  height: 28px;
-  border: 2px solid var(--frame-border-color);
-  border-radius: 50%;
-  animation: gear-spin 8s linear infinite;
-}
-
-.theme-steampunk .frame-corner::before {
-  content: '⚙';
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 20px;
-  color: var(--frame-accent-primary);
-  text-shadow: 0 0 4px var(--frame-border-glow);
-}
-
-.theme-steampunk .frame-corner-tr { animation-direction: reverse; }
-.theme-steampunk .frame-corner-bl { animation-direction: reverse; }
-
-/* --- Hazard corners (military) --- */
-.theme-military .frame-corner {
-  width: 20px;
-  height: 20px;
-  background: var(--frame-accent-primary);
-}
-
-.theme-military .frame-corner::before {
-  content: '';
-  position: absolute;
-  inset: 3px;
-  background: var(--frame-bg-primary);
-}
-
-/* --- Angular corners (alien) --- */
-.theme-alien .frame-corner {
-  width: 30px;
-  height: 30px;
-}
-
-.theme-alien .frame-corner::before {
-  content: '';
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  background: transparent;
-  border: 2px solid var(--frame-accent-primary);
-  clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
-  animation: alien-rotate 6s linear infinite;
-  box-shadow: 0 0 14px var(--frame-border-glow);
-}
-
-.theme-alien .frame-corner::after {
-  content: '';
-  position: absolute;
-  inset: 5px;
-  background: var(--frame-accent-secondary);
-  clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
-  opacity: 0.4;
-  animation: alien-rotate 6s linear infinite reverse;
+.frame-corner-br {
+  bottom: var(--frame-padding);
+  right: var(--frame-padding);
+  transform: scale(-1);
 }
 
 /* ============================================================
-   EDGE DECORATIONS
+   EDGE DECORATIONS (tile-based, repeating)
    ============================================================ */
 
 .frame-edge {
@@ -226,168 +130,36 @@ body {
   z-index: 21;
   pointer-events: none;
   overflow: hidden;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
 }
 
 .frame-edge-top, .frame-edge-bottom {
-  left: calc(var(--frame-padding) + var(--frame-corner-size) + 4px);
-  right: calc(var(--frame-padding) + var(--frame-corner-size) + 4px);
-  height: 8px;
+  left: calc(var(--frame-padding) + var(--frame-tile-size));
+  right: calc(var(--frame-padding) + var(--frame-tile-size));
+  height: var(--frame-tile-size);
+  background-repeat: repeat-x;
+  background-size: var(--frame-edge-h-width) var(--frame-tile-size);
 }
 
 .frame-edge-top { top: var(--frame-padding); }
-.frame-edge-bottom { bottom: var(--frame-padding); }
+.frame-edge-bottom {
+  bottom: var(--frame-padding);
+  transform: scaleY(-1);
+}
 
 .frame-edge-left, .frame-edge-right {
-  top: calc(var(--frame-padding) + var(--frame-corner-size) + 4px);
-  bottom: calc(var(--frame-padding) + var(--frame-corner-size) + 4px);
-  width: 8px;
+  top: calc(var(--frame-padding) + var(--frame-tile-size));
+  bottom: calc(var(--frame-padding) + var(--frame-tile-size));
+  width: var(--frame-tile-size);
+  background-repeat: repeat-y;
+  background-size: var(--frame-tile-size) var(--frame-edge-v-height);
 }
 
 .frame-edge-left { left: var(--frame-padding); }
-.frame-edge-right { right: var(--frame-padding); }
-
-/* --- Scanlines (retro-scifi) --- */
-.theme-retro-scifi .frame-edge::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: repeating-linear-gradient(
-    0deg,
-    transparent,
-    transparent 2px,
-    var(--frame-accent-primary) 2px,
-    var(--frame-accent-primary) 3px
-  );
-  opacity: 0.15;
-  animation: scanline-scroll 3s linear infinite;
-}
-
-.theme-retro-scifi .frame-edge-left::before,
-.theme-retro-scifi .frame-edge-right::before {
-  background: repeating-linear-gradient(
-    90deg,
-    transparent,
-    transparent 2px,
-    var(--frame-accent-primary) 2px,
-    var(--frame-accent-primary) 3px
-  );
-}
-
-/* --- Veins (biological) --- */
-.theme-biological .frame-edge::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    var(--frame-border-color) 20%,
-    transparent 40%,
-    var(--frame-accent-secondary) 60%,
-    transparent 80%
-  );
-  background-size: 200% 100%;
-  opacity: 0.3;
-  animation: vein-flow var(--frame-animation-speed) ease-in-out infinite;
-}
-
-.theme-biological .frame-edge-left::before,
-.theme-biological .frame-edge-right::before {
-  background: linear-gradient(
-    0deg,
-    transparent 0%,
-    var(--frame-border-color) 20%,
-    transparent 40%,
-    var(--frame-accent-secondary) 60%,
-    transparent 80%
-  );
-  background-size: 100% 200%;
-  animation: vein-flow-v var(--frame-animation-speed) ease-in-out infinite;
-}
-
-/* --- Rivets (steampunk) --- */
-.theme-steampunk .frame-edge::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: repeating-linear-gradient(
-    90deg,
-    transparent,
-    transparent 18px,
-    var(--frame-accent-primary) 18px,
-    var(--frame-accent-primary) 22px
-  );
-  opacity: 0.4;
-  border-radius: 50%;
-}
-
-.theme-steampunk .frame-edge::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: repeating-linear-gradient(
-    90deg,
-    transparent 0px,
-    transparent 19px,
-    var(--frame-accent-secondary) 19px,
-    var(--frame-accent-secondary) 21px
-  );
-  opacity: 0.2;
-}
-
-.theme-steampunk .frame-edge-left::before,
-.theme-steampunk .frame-edge-right::before {
-  background: repeating-linear-gradient(
-    0deg,
-    transparent,
-    transparent 18px,
-    var(--frame-accent-primary) 18px,
-    var(--frame-accent-primary) 22px
-  );
-}
-
-/* --- Hazard stripes (military) --- */
-.theme-military .frame-edge::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: repeating-linear-gradient(
-    -45deg,
-    var(--frame-accent-primary),
-    var(--frame-accent-primary) 4px,
-    transparent 4px,
-    transparent 12px
-  );
-  opacity: 0.15;
-}
-
-/* --- Crystals (alien) --- */
-.theme-alien .frame-edge::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: repeating-linear-gradient(
-    90deg,
-    transparent 0px,
-    transparent 30px,
-    var(--frame-accent-primary) 30px,
-    var(--frame-accent-secondary) 33px,
-    transparent 36px
-  );
-  opacity: 0.3;
-  animation: crystal-shimmer 4s ease-in-out infinite;
-}
-
-.theme-alien .frame-edge-left::before,
-.theme-alien .frame-edge-right::before {
-  background: repeating-linear-gradient(
-    0deg,
-    transparent 0px,
-    transparent 30px,
-    var(--frame-accent-primary) 30px,
-    var(--frame-accent-secondary) 33px,
-    transparent 36px
-  );
+.frame-edge-right {
+  right: var(--frame-padding);
+  transform: scaleX(-1);
 }
 
 /* ============================================================
@@ -396,9 +168,9 @@ body {
 
 .frame-top-bar {
   position: absolute;
-  top: calc(var(--frame-padding) + var(--frame-border-width) + 1px);
-  left: calc(var(--frame-padding) + var(--frame-corner-size) + 4px);
-  right: calc(var(--frame-padding) + var(--frame-corner-size) + 4px);
+  top: calc(var(--frame-padding) + var(--frame-content-inset) + 1px);
+  left: calc(var(--frame-padding) + var(--frame-content-inset));
+  right: calc(var(--frame-padding) + var(--frame-content-inset));
   height: var(--frame-top-height);
   display: none;
   align-items: center;
@@ -494,9 +266,9 @@ body {
 
 .frame-bottom-bar {
   position: absolute;
-  bottom: calc(var(--frame-padding) + var(--frame-border-width) + 1px);
-  left: calc(var(--frame-padding) + var(--frame-corner-size) + 4px);
-  right: calc(var(--frame-padding) + var(--frame-corner-size) + 4px);
+  bottom: calc(var(--frame-padding) + var(--frame-content-inset) + 1px);
+  left: calc(var(--frame-padding) + var(--frame-content-inset));
+  right: calc(var(--frame-padding) + var(--frame-content-inset));
   height: var(--frame-bottom-height);
   display: none;
   align-items: center;
@@ -581,9 +353,9 @@ body {
 
 .frame-left-panel {
   position: absolute;
-  top: calc(var(--frame-padding) + var(--frame-border-width) + var(--frame-top-height) + 4px);
-  bottom: calc(var(--frame-padding) + var(--frame-border-width) + var(--frame-bottom-height) + 4px);
-  left: calc(var(--frame-padding) + var(--frame-border-width) + 2px);
+  top: calc(var(--frame-padding) + var(--frame-content-inset) + var(--frame-top-height) + 4px);
+  bottom: calc(var(--frame-padding) + var(--frame-content-inset) + var(--frame-bottom-height) + 4px);
+  left: calc(var(--frame-padding) + var(--frame-content-inset) + 2px);
   width: 240px;
   background: rgba(10, 10, 28, 0.92);
   border-right: 1px solid var(--frame-border-color);
@@ -695,19 +467,18 @@ body {
    THEME-SPECIFIC FRAME OVERRIDES
    ============================================================ */
 
-/* --- Biological: pulsing border --- */
+/* --- Biological: pulsing glow --- */
 .theme-biological #game-frame::before {
   animation: bio-border-pulse 3s ease-in-out infinite;
 }
 
-/* --- Steampunk: double border with inner line --- */
+/* --- Steampunk: inner glow line --- */
 .theme-steampunk #game-frame::after {
   content: '';
   position: absolute;
-  inset: calc(var(--frame-padding) + 5px);
+  inset: calc(var(--frame-padding) + var(--frame-content-inset) + 2px);
   border: 1px solid var(--frame-accent-secondary);
-  border-radius: var(--frame-corner-radius);
-  opacity: 0.3;
+  opacity: 0.15;
   pointer-events: none;
   z-index: 19;
 }
@@ -738,9 +509,8 @@ body {
 .theme-alien #game-frame::after {
   content: '';
   position: absolute;
-  inset: calc(var(--frame-padding) + 4px);
+  inset: calc(var(--frame-padding) + var(--frame-content-inset) + 2px);
   border: 1px solid var(--frame-accent-secondary);
-  border-radius: var(--frame-corner-radius);
   opacity: 0.15;
   pointer-events: none;
   z-index: 19;
@@ -793,11 +563,6 @@ body {
    ANIMATIONS
    ============================================================ */
 
-@keyframes bio-pulse {
-  0%, 100% { opacity: 0.5; transform: scale(1); }
-  50% { opacity: 0.9; transform: scale(1.1); }
-}
-
 @keyframes bio-border-pulse {
   0%, 100% {
     box-shadow: 0 0 8px var(--frame-border-glow), inset 0 0 8px var(--frame-border-glow);
@@ -807,34 +572,21 @@ body {
   }
 }
 
-@keyframes gear-spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-@keyframes alien-rotate {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
 @keyframes alien-border-shimmer {
   0%, 100% {
     box-shadow:
       0 0 10px rgba(102, 68, 255, 0.4),
       inset 0 0 10px rgba(102, 68, 255, 0.2);
-    border-color: #6644ff;
   }
   33% {
     box-shadow:
       0 0 16px rgba(136, 170, 255, 0.5),
       inset 0 0 12px rgba(136, 170, 255, 0.2);
-    border-color: #88aaff;
   }
   66% {
     box-shadow:
       0 0 14px rgba(204, 102, 255, 0.45),
       inset 0 0 10px rgba(204, 102, 255, 0.2);
-    border-color: #cc66ff;
   }
 }
 
@@ -846,21 +598,6 @@ body {
 @keyframes scanline-scroll {
   from { background-position-y: 0; }
   to { background-position-y: 4px; }
-}
-
-@keyframes vein-flow {
-  0% { background-position-x: 0%; }
-  100% { background-position-x: 200%; }
-}
-
-@keyframes vein-flow-v {
-  0% { background-position-y: 0%; }
-  100% { background-position-y: 200%; }
-}
-
-@keyframes crystal-shimmer {
-  0%, 100% { opacity: 0.2; }
-  50% { opacity: 0.5; }
 }
 
 @keyframes bar-critical {

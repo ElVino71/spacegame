@@ -90,3 +90,5 @@ All SFX are synthesized procedurally (oscillators, filters, noise). No audio fil
 - **Constants**: Game dimensions (1280x720), colors, faction names, type arrays all in `src/utils/Constants.ts`.
 
 I want claude to update the documents after each major step has been done, or more simply just keep the documents up to date.
+I want claude to make a file for the current planned piece of work before the work starts, so if we run out of tokens, we can review this file
+to continue the work. Update this plan file as we continue, and clear it when its done.

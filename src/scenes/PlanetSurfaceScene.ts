@@ -126,7 +126,7 @@ export class PlanetSurfaceScene extends Phaser.Scene {
     this.drawMap();
 
     // Player sprite
-    this.playerSprite = this.add.image(0, 0, 'tile_player').setOrigin(0, 0).setDepth(1);
+    this.playerSprite = this.add.image(0, 0, 'tile_rover').setOrigin(0, 0).setDepth(1);
 
     // Center camera
     this.centerCamera();
@@ -289,7 +289,7 @@ export class PlanetSurfaceScene extends Phaser.Scene {
       this.playerX = newX;
       this.playerY = newY;
       this.lastMoveTime = time;
-      getAudioManager().playSfx('footstep');
+      getAudioManager().playSfx('rover_move');
       this.centerCamera();
       this.updateTilePanel();
     }
@@ -333,8 +333,8 @@ export class PlanetSurfaceScene extends Phaser.Scene {
       for (let x = 0; x < MAP_SIZE; x++) {
         const tile = this.tiles[y][x];
 
-        // For flora/fauna, draw ground underneath first
-        if (tile.type === 'flora' || tile.type === 'fauna') {
+        // For tiles with transparency, draw ground underneath first
+        if (tile.type === 'flora' || tile.type === 'fauna' || tile.type === 'rock') {
           stamp.setTexture(`tile_ground_${(tile.groundVariant ?? 1)}`);
           stamp.setPosition(x * TILE_SIZE, y * TILE_SIZE);
           stamp.setTint(tile.color);
@@ -367,6 +367,14 @@ export class PlanetSurfaceScene extends Phaser.Scene {
     const stamp = this.make.image({ x: 0, y: 0, key: this.getTileTexture(tile) }, false);
     stamp.setOrigin(0, 0);
     stamp.setPosition(x * TILE_SIZE, y * TILE_SIZE);
+
+    // Draw ground underneath tiles with transparency
+    if (tile.type === 'flora' || tile.type === 'fauna' || tile.type === 'rock') {
+      stamp.setTexture(`tile_ground_${(tile.groundVariant ?? 1)}`);
+      stamp.setTint(tile.color);
+      this.mapRT.draw(stamp);
+      stamp.setTexture(this.getTileTexture(tile));
+    }
 
     if (this.isTintable(tile.type)) {
       stamp.setTint(tile.color);

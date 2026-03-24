@@ -43,7 +43,7 @@ export class BootScene extends Phaser.Scene {
     this.createPlaceholderTextures();
 
     // Load tile PNGs (editable by user in assets/tiles/)
-    const tileNames = ['ground_1', 'ground_2', 'ground_3', 'rock', 'mineral', 'ruin', 'settlement', 'water', 'lava', 'player'];
+    const tileNames = ['ground_1', 'ground_2', 'ground_3', 'rock', 'mineral', 'ruin', 'settlement', 'water', 'lava', 'player', 'rover'];
     for (const name of tileNames) {
       this.load.image(`tile_${name}`, `assets/tiles/${name}.png`);
     }

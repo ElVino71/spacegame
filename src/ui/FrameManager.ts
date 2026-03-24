@@ -150,12 +150,35 @@ export class FrameManager {
     root.style.setProperty('--frame-border-width', theme.borderWidth);
     root.style.setProperty('--frame-border-style', theme.borderStyle);
     root.style.setProperty('--frame-corner-radius', theme.cornerRadius);
-    root.style.setProperty('--frame-corner-size', theme.cornerSize);
     root.style.setProperty('--frame-font-primary', theme.fontPrimary);
     root.style.setProperty('--frame-font-heading', theme.fontHeading);
     root.style.setProperty('--frame-glow-intensity', theme.glowIntensity);
     root.style.setProperty('--frame-scanline-opacity', theme.scanlineOpacity);
     root.style.setProperty('--frame-animation-speed', theme.animationSpeed);
+
+    // Set tile-based border images
+    this.applyFrameTiles(themeId);
+  }
+
+  private applyFrameTiles(themeId: ThemeId): void {
+    const basePath = `assets/tiles/frame/${themeId}`;
+    const cornerUrl = `url('${basePath}/corner_tl.png')`;
+    const edgeHUrl = `url('${basePath}/edge_h.png')`;
+    const edgeVUrl = `url('${basePath}/edge_v.png')`;
+
+    for (const el of this.cornerEls) {
+      el.style.backgroundImage = cornerUrl;
+      el.style.backgroundSize = '96px 96px';
+    }
+    for (const el of this.edgeEls) {
+      if (el.classList.contains('frame-edge-top') || el.classList.contains('frame-edge-bottom')) {
+        el.style.backgroundImage = edgeHUrl;
+        el.style.backgroundSize = '768px 96px';
+      } else {
+        el.style.backgroundImage = edgeVUrl;
+        el.style.backgroundSize = '96px 768px';
+      }
+    }
   }
 
   getTheme(): ThemeDefinition {

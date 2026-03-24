@@ -315,7 +315,50 @@ tiles['lava'] = () => {
   return p;
 };
 
-// --- Player character (top-down view) ---
+// --- Rover vehicle (top-down view) ---
+tiles['rover'] = () => {
+  const p = createCanvas();
+  fill(p, 0, 0, 0, 0); // transparent
+  // Main body (grey hull)
+  for (let y = 3; y < 13; y++)
+    for (let x = 4; x < 12; x++)
+      setPixel(p, x, y, 140, 150, 160);
+  // Darker chassis edges
+  for (let y = 4; y < 12; y++) {
+    setPixel(p, 4, y, 100, 110, 120);
+    setPixel(p, 11, y, 100, 110, 120);
+  }
+  // Windshield (front, top of sprite)
+  for (let x = 5; x < 11; x++) {
+    setPixel(p, x, 3, 80, 180, 240);
+    setPixel(p, x, 4, 100, 200, 255);
+  }
+  // Wheels/treads (dark, left and right sides)
+  for (let y = 3; y < 13; y++) {
+    setPixel(p, 3, y, 50, 50, 55);
+    setPixel(p, 12, y, 50, 50, 55);
+  }
+  // Wheel tread detail
+  for (let y = 4; y < 12; y += 2) {
+    setPixel(p, 3, y, 70, 70, 75);
+    setPixel(p, 12, y, 70, 70, 75);
+  }
+  // Antenna
+  setPixel(p, 6, 1, 180, 180, 190);
+  setPixel(p, 6, 2, 180, 180, 190);
+  setPixel(p, 6, 0, 255, 80, 80); // red tip
+  // Rear exhaust vents
+  setPixel(p, 6, 13, 60, 60, 70);
+  setPixel(p, 7, 13, 80, 80, 90);
+  setPixel(p, 8, 13, 80, 80, 90);
+  setPixel(p, 9, 13, 60, 60, 70);
+  // Headlights
+  setPixel(p, 5, 3, 255, 255, 200);
+  setPixel(p, 10, 3, 255, 255, 200);
+  return p;
+};
+
+// --- Player character (top-down view, used in ruins) ---
 tiles['player'] = () => {
   const p = createCanvas();
   fill(p, 0, 0, 0, 0); // transparent

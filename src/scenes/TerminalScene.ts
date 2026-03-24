@@ -30,6 +30,7 @@ export class TerminalScene extends Phaser.Scene {
     // Setup frame — minimal with just the border, terminal fills the screen
     const frame = getFrameManager();
     frame.enterGameplay('Ship Terminal');
+    frame.hidePanel();
     frame.setNav([
       { id: 'terminal', label: 'Terminal', active: true },
       { id: 'ship', label: 'Ship', shortcut: 'ESC' },
