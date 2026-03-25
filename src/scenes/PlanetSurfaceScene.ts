@@ -3,7 +3,7 @@ import { getGameState, GameState } from '../GameState';
 import { COLORS, GAME_WIDTH, GAME_HEIGHT } from '../utils/Constants';
 import { PlanetData } from '../entities/StarSystem';
 import { SeededRandom } from '../utils/SeededRandom';
-import { getCargoCapacity, getCargoUsed } from '../entities/Player';
+import { CargoItem, getCargoCapacity, getCargoUsed } from '../entities/Player';
 import { getFrameManager } from '../ui/FrameManager';
 import { getAudioManager } from '../audio/AudioManager';
 
@@ -11,6 +11,7 @@ const MAP_SIZE = 128;
 const TILE_SIZE = 16;
 const PANEL_WIDTH = 240;
 const MOVE_DELAY = 100; // ms between tile moves
+const ROVER_CARGO_MAX = 5;
 
 interface SurfaceTile {
   type: 'ground' | 'rock' | 'mineral' | 'ruin_entrance' | 'settlement' | 'water' | 'lava' | 'flora' | 'fauna';
@@ -81,6 +82,7 @@ export class PlanetSurfaceScene extends Phaser.Scene {
   private playerX = MAP_SIZE / 2;
   private playerY = MAP_SIZE / 2;
   private lastMoveTime = 0;
+  private roverCargo: CargoItem[] = [];
 
   // Input
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
@@ -99,6 +101,7 @@ export class PlanetSurfaceScene extends Phaser.Scene {
     this.playerX = MAP_SIZE / 2;
     this.playerY = MAP_SIZE / 2;
     this.lastMoveTime = 0;
+    this.roverCargo = [];
 
     // Setup frame
     const frame = getFrameManager();
@@ -126,7 +129,7 @@ export class PlanetSurfaceScene extends Phaser.Scene {
     this.drawMap();
 
     // Player sprite
-    this.playerSprite = this.add.image(0, 0, 'tile_rover').setOrigin(0, 0).setDepth(1);
+    this.playerSprite = this.add.image(0, 0, 'tile_rover').setOrigin(0.5, 0.5).setDepth(1);
 
     // Center camera
     this.centerCamera();
@@ -165,6 +168,7 @@ export class PlanetSurfaceScene extends Phaser.Scene {
     frame.setPanelContent(`
       <div class="section" id="panel-planet"></div>
       <div class="section" id="panel-status"></div>
+      <div class="section" id="panel-rover-cargo"></div>
       <div class="section" id="panel-tile"></div>
       <div style="flex:1"></div>
       <div class="section controls" id="panel-controls"></div>
@@ -200,13 +204,26 @@ export class PlanetSurfaceScene extends Phaser.Scene {
       (this.planet.hasSettlement ? this.row('Settlement', 'Present', 'good') : '');
 
     // Player status
+    const roverUsed = this.roverCargo.reduce((t, i) => t + i.quantity, 0);
     const panelStatus = document.getElementById('panel-status')!;
     panelStatus.innerHTML =
       `<div class="section-title">Status</div>` +
       this.row('Hull', `${Math.floor(ship.hull.current)}/${ship.hull.max}`) +
-      this.row('Cargo', `${cargoUsed}/${cargoMax}`) +
+      this.row('Ship Cargo', `${cargoUsed}/${cargoMax}`) +
       this.row('Credits', `${this.state.player.credits} CR`, 'good') +
       this.row('Position', `${this.playerX}, ${this.playerY}`);
+
+    // Rover cargo
+    const panelRover = document.getElementById('panel-rover-cargo')!;
+    let roverHtml = `<div class="section-title">Rover Cargo (${roverUsed}/${ROVER_CARGO_MAX})</div>`;
+    if (this.roverCargo.length === 0) {
+      roverHtml += `<div class="label">Empty</div>`;
+    } else {
+      for (const item of this.roverCargo) {
+        roverHtml += this.row(item.name, `×${item.quantity}`, 'warn');
+      }
+    }
+    panelRover.innerHTML = roverHtml;
 
     // Current tile
     this.updateTilePanel();
@@ -222,11 +239,17 @@ export class PlanetSurfaceScene extends Phaser.Scene {
     let html = `<div class="section-title">Ground</div>`;
 
     switch (tile.type) {
-      case 'mineral':
+      case 'mineral': {
         html += this.row('Type', 'Mineral Deposit', 'warn');
         if (tile.mineralType) html += this.row('Mineral', tile.mineralType);
-        html += `<div class="action">[SPACE] Mine deposit</div>`;
+        const rUsed = this.roverCargo.reduce((t, i) => t + i.quantity, 0);
+        if (rUsed >= ROVER_CARGO_MAX) {
+          html += `<div class="action muted">Rover cargo full</div>`;
+        } else {
+          html += `<div class="action">[SPACE] Mine deposit</div>`;
+        }
         break;
+      }
       case 'ruin_entrance':
         html += this.row('Type', 'Ancient Ruins', 'warn');
         html += `<div class="action">[SPACE] Enter ruins</div>`;
@@ -289,6 +312,13 @@ export class PlanetSurfaceScene extends Phaser.Scene {
       this.playerX = newX;
       this.playerY = newY;
       this.lastMoveTime = time;
+
+      // Rotate rover sprite to face movement direction
+      if (dx === 1) this.playerSprite.setAngle(90);       // East
+      else if (dx === -1) this.playerSprite.setAngle(-90); // West
+      else if (dy === -1) this.playerSprite.setAngle(0);   // North (default)
+      else if (dy === 1) this.playerSprite.setAngle(180);  // South
+
       getAudioManager().playSfx('rover_move');
       this.centerCamera();
       this.updateTilePanel();
@@ -359,7 +389,7 @@ export class PlanetSurfaceScene extends Phaser.Scene {
   }
 
   private drawPlayer(): void {
-    this.playerSprite.setPosition(this.playerX * TILE_SIZE, this.playerY * TILE_SIZE);
+    this.playerSprite.setPosition(this.playerX * TILE_SIZE + TILE_SIZE / 2, this.playerY * TILE_SIZE + TILE_SIZE / 2);
   }
 
   private redrawTile(x: number, y: number): void {
@@ -390,12 +420,25 @@ export class PlanetSurfaceScene extends Phaser.Scene {
     const tile = this.tiles[this.playerY][this.playerX];
 
     if (tile.type === 'mineral') {
+      const roverUsed = this.roverCargo.reduce((t, i) => t + i.quantity, 0);
+      if (roverUsed >= ROVER_CARGO_MAX) {
+        getFrameManager().showAlert('Rover cargo full!', 'warn');
+        return;
+      }
       getAudioManager().playSfx('mine');
+      // Add mineral to rover cargo
+      const mineralName = tile.mineralType || 'Unknown Ore';
+      const existing = this.roverCargo.find(c => c.id === mineralName);
+      if (existing) {
+        existing.quantity++;
+      } else {
+        this.roverCargo.push({ id: mineralName, name: mineralName, quantity: 1, value: 50 });
+      }
       tile.type = 'ground';
       tile.color = 0x555544;
       tile.groundVariant = 2;
       this.redrawTile(this.playerX, this.playerY);
-      this.updateTilePanel();
+      this.updatePanel();
     } else if (tile.type === 'ruin_entrance') {
       // TODO: Enter ruins scene
     } else if (tile.type === 'settlement') {
@@ -404,6 +447,17 @@ export class PlanetSurfaceScene extends Phaser.Scene {
   }
 
   private liftoff(): void {
+    // Transfer rover cargo to ship cargo
+    for (const item of this.roverCargo) {
+      const existing = this.state.player.cargo.find(c => c.id === item.id);
+      if (existing) {
+        existing.quantity += item.quantity;
+      } else {
+        this.state.player.cargo.push({ ...item });
+      }
+    }
+    this.roverCargo = [];
+
     getAudioManager().playSfx('takeoff');
     const frame = getFrameManager();
     frame.hidePanel();

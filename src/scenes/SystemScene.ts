@@ -105,13 +105,13 @@ export class SystemScene extends Phaser.Scene {
     this.drawOrbits();
 
     // UI
-    this.infoText = this.add.text(10, 10, '', {
+    this.infoText = this.add.text(30, 30, '', {
       fontFamily: 'monospace', fontSize: '13px', color: '#00ff88',
       backgroundColor: '#111122cc', padding: { x: 8, y: 6 },
       wordWrap: { width: 280 },
     }).setScrollFactor(0).setDepth(100);
 
-    this.speedText = this.add.text(1270, 10, '', {
+    this.speedText = this.add.text(1250, 30, '', {
       fontFamily: 'monospace', fontSize: '13px', color: '#ffcc00',
       backgroundColor: '#111122cc', padding: { x: 8, y: 6 },
     }).setScrollFactor(0).setDepth(100).setOrigin(1, 0);

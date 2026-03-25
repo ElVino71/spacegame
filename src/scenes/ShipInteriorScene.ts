@@ -70,7 +70,7 @@ export class ShipInteriorScene extends Phaser.Scene {
     this.playerY = this.rooms[0].y + this.rooms[0].height - 20;
 
     // UI
-    this.infoText = this.add.text(10, 10, '', {
+    this.infoText = this.add.text(30, 30, '', {
       fontFamily: 'monospace', fontSize: '13px', color: '#00ff88',
       backgroundColor: '#111122cc', padding: { x: 8, y: 6 },
       wordWrap: { width: 300 },

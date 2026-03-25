@@ -55,10 +55,25 @@ shutdown() {
 
 Tile-based planet surfaces use 16×16 PNG sprites loaded from `assets/tiles/`. Three generation scripts produce placeholder art:
 
-- `scripts/generate-tiles.js` — base terrain tiles (ground variants, rock, mineral, ruin, settlement, water, lava, player)
+- `scripts/generate-tiles.js` — base terrain tiles (ground variants, rock, mineral, ruin, settlement, water, lava, rover)
 - `scripts/generate-bio-tiles.js` — flora (10 types in `assets/tiles/flora/`) and fauna (6 types in `assets/tiles/fauna/`)
 
 All tiles are drawn in neutral tones and tinted per-planet-type at runtime. Flora/fauna distribution is biome-specific (lush planets get dense vegetation + diverse fauna; barren moons get nothing; desert gets cactus + sparse insects, etc.) defined in `BIOME_CONFIGS` in PlanetSurfaceScene.
+
+### Frame Border Tiles
+
+The game frame uses 32×32 procedurally generated tile PNGs displayed at 3× (96px) with `image-rendering: pixelated`. One generator script produces themed border art:
+
+- `scripts/generate-frame-tiles.js` — 5 themes × 3 files each:
+  - `corner_tl.png` (32×32) — corner piece, CSS-flipped for other corners
+  - `edge_h.png` (256×32) — 8-tile horizontal strip with 4 variant types composited
+  - `edge_v.png` (32×256) — 8-tile vertical strip with 4 variant types composited
+
+CSS uses `--frame-tile-size: 96px` for tile display and `--frame-content-inset: 18px` for content positioning (bars, panels sit just inside the visible border, not 96px in).
+
+### Rover & Surface Cargo
+
+The player explores planet surfaces in a rover vehicle (sprite rotates with movement direction). The rover has 5 cargo slots separate from ship cargo. Mined minerals go to rover cargo; on liftoff, rover cargo transfers to ship cargo automatically.
 
 ### Procedural Generation
 
@@ -86,7 +101,8 @@ All SFX are synthesized procedurally (oscillators, filters, noise). No audio fil
 
 - **Seeded RNG everywhere**: Use `rng.fork(id)` for deterministic sub-generators, never `Math.random()` for game content.
 - **Camera viewport offset**: Scenes with left panels offset `cameras.main.setViewport(PANEL_WIDTH, 0, ...)`.
-- **Frame lifecycle**: Always call `frame.hidePanel()` in `shutdown()` if panel was shown.
+- **Frame lifecycle**: Always call `frame.hidePanel()` in `shutdown()` or `create()` if the scene doesn't use the panel. The panel persists across scene transitions.
+- **Phaser text positioning**: UI text using `setScrollFactor(0)` must be placed at (30, 30) or further from edges to clear the 96px frame border tiles.
 - **Constants**: Game dimensions (1280x720), colors, faction names, type arrays all in `src/utils/Constants.ts`.
 
 I want claude to update the documents after each major step has been done, or more simply just keep the documents up to date.

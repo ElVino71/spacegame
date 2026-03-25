@@ -417,36 +417,58 @@ export class AudioManager {
 
   private synthRoverMove(ctx: AudioContext): void {
     const t = ctx.currentTime;
-    // Low engine rumble
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = 'sawtooth';
-    osc.frequency.setValueAtTime(55 + Math.random() * 15, t);
-    osc.frequency.exponentialRampToValueAtTime(45, t + 0.1);
-    gain.gain.setValueAtTime(0.06, t);
-    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
-    const filter = ctx.createBiquadFilter();
-    filter.type = 'lowpass';
-    filter.frequency.value = 200;
-    osc.connect(filter).connect(gain).connect(this.sfxGain!);
-    osc.start(t);
-    osc.stop(t + 0.1);
-    // Tread crunch (short noise burst)
-    const buf = ctx.createBuffer(1, ctx.sampleRate * 0.05, ctx.sampleRate);
+    const dur = 0.18;
+
+    // Engine rumble — low sawtooth with slight pitch variation
+    const eng = ctx.createOscillator();
+    const engGain = ctx.createGain();
+    eng.type = 'sawtooth';
+    eng.frequency.setValueAtTime(38 + Math.random() * 8, t);
+    eng.frequency.linearRampToValueAtTime(32 + Math.random() * 5, t + dur);
+    engGain.gain.setValueAtTime(0.09, t);
+    engGain.gain.setValueAtTime(0.07, t + dur * 0.3);
+    engGain.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    const engFilter = ctx.createBiquadFilter();
+    engFilter.type = 'lowpass';
+    engFilter.frequency.value = 160;
+    engFilter.Q.value = 2;
+    eng.connect(engFilter).connect(engGain).connect(this.sfxGain!);
+    eng.start(t);
+    eng.stop(t + dur);
+
+    // Motor whine — higher harmonic
+    const whine = ctx.createOscillator();
+    const whineGain = ctx.createGain();
+    whine.type = 'square';
+    whine.frequency.setValueAtTime(120 + Math.random() * 20, t);
+    whine.frequency.exponentialRampToValueAtTime(90, t + dur);
+    whineGain.gain.setValueAtTime(0.02, t);
+    whineGain.gain.exponentialRampToValueAtTime(0.001, t + dur * 0.7);
+    const whineFilter = ctx.createBiquadFilter();
+    whineFilter.type = 'bandpass';
+    whineFilter.frequency.value = 300;
+    whineFilter.Q.value = 3;
+    whine.connect(whineFilter).connect(whineGain).connect(this.sfxGain!);
+    whine.start(t);
+    whine.stop(t + dur);
+
+    // Tread grind — filtered noise burst
+    const buf = ctx.createBuffer(1, Math.round(ctx.sampleRate * dur * 0.6), ctx.sampleRate);
     const data = buf.getChannelData(0);
-    for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * 0.3;
+    for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * 0.5;
     const noise = ctx.createBufferSource();
     noise.buffer = buf;
     const nGain = ctx.createGain();
-    nGain.gain.setValueAtTime(0.04, t);
-    nGain.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
+    nGain.gain.setValueAtTime(0.05, t);
+    nGain.gain.linearRampToValueAtTime(0.03, t + dur * 0.3);
+    nGain.gain.exponentialRampToValueAtTime(0.001, t + dur * 0.6);
     const nFilter = ctx.createBiquadFilter();
     nFilter.type = 'bandpass';
-    nFilter.frequency.value = 800;
-    nFilter.Q.value = 1.5;
+    nFilter.frequency.value = 500 + Math.random() * 200;
+    nFilter.Q.value = 1;
     noise.connect(nFilter).connect(nGain).connect(this.sfxGain!);
     noise.start(t);
-    noise.stop(t + 0.05);
+    noise.stop(t + dur * 0.6);
   }
 
   private synthMine(ctx: AudioContext): void {
