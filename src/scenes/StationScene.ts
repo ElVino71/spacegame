@@ -1,61 +1,28 @@
 import Phaser from 'phaser';
 import { getGameState, GameState } from '../GameState';
-import { COLORS, GAME_WIDTH, GAME_HEIGHT, FACTION_NAMES, ECONOMY_TYPES } from '../utils/Constants';
+import { FACTION_NAMES } from '../utils/Constants';
 import { StationData } from '../entities/StarSystem';
-import { getCargoCapacity, getCargoUsed, CargoItem } from '../entities/Player';
+import { getCargoCapacity, getCargoUsed } from '../entities/Player';
 import { SeededRandom } from '../utils/SeededRandom';
 import { getFrameManager } from '../ui/FrameManager';
 import { getAudioManager } from '../audio/AudioManager';
-
-const PANEL_WIDTH = 340;
-
-interface TradeGood {
-  id: string;
-  name: string;
-  basePrice: number;
-  category: string;
-}
+import { TRADE_GOODS, TRADE_PREFIXES, ECONOMY_MODIFIERS, TradeGood } from '../data/trade';
 
 interface MarketListing {
   good: TradeGood;
+  cargoId: string;
+  displayName: string;
   buyPrice: number;
   sellPrice: number;
   stock: number;
 }
-
-const TRADE_GOODS: TradeGood[] = [
-  { id: 'food',        name: 'Food Rations',     basePrice: 20,  category: 'basic' },
-  { id: 'water',       name: 'Purified Water',   basePrice: 15,  category: 'basic' },
-  { id: 'med',         name: 'Medical Supplies',  basePrice: 50,  category: 'basic' },
-  { id: 'iron',        name: 'Iron Ore',          basePrice: 30,  category: 'mineral' },
-  { id: 'copper',      name: 'Copper Ore',        basePrice: 40,  category: 'mineral' },
-  { id: 'titanium',    name: 'Titanium',          basePrice: 80,  category: 'mineral' },
-  { id: 'platinum',    name: 'Platinum',          basePrice: 150, category: 'mineral' },
-  { id: 'crystals',    name: 'Crystals',          basePrice: 120, category: 'mineral' },
-  { id: 'electronics', name: 'Electronics',       basePrice: 90,  category: 'tech' },
-  { id: 'components',  name: 'Ship Components',   basePrice: 110, category: 'tech' },
-  { id: 'weapons',     name: 'Weapons',           basePrice: 130, category: 'military' },
-  { id: 'luxury',      name: 'Luxury Goods',      basePrice: 200, category: 'luxury' },
-  { id: 'fuel_cells',  name: 'Fuel Cells',        basePrice: 45,  category: 'basic' },
-  { id: 'artifacts',   name: 'Alien Artifacts',   basePrice: 300, category: 'rare' },
-  { id: 'rare_earth',  name: 'Rare Earth',        basePrice: 170, category: 'mineral' },
-];
-
-const ECONOMY_MODIFIERS: Record<string, Record<string, number>> = {
-  agricultural: { basic: -0.3, mineral: 0.1, tech: 0.2, military: 0.15, luxury: 0.1, rare: 0 },
-  industrial:   { basic: 0.1, mineral: -0.2, tech: -0.15, military: -0.1, luxury: 0.2, rare: 0 },
-  mining:       { basic: 0.15, mineral: -0.35, tech: 0.1, military: 0.1, luxury: 0.2, rare: -0.1 },
-  military:     { basic: 0.05, mineral: 0.1, tech: -0.1, military: -0.3, luxury: 0.3, rare: 0.1 },
-  research:     { basic: 0.1, mineral: 0.15, tech: -0.25, military: 0.2, luxury: -0.1, rare: -0.2 },
-  outpost:      { basic: 0.3, mineral: 0.2, tech: 0.3, military: 0.2, luxury: -0.2, rare: 0 },
-};
 
 export class StationScene extends Phaser.Scene {
   private state!: GameState;
   private station!: StationData;
   private market: MarketListing[] = [];
   private selectedIndex = 0;
-  private mode: 'market' | 'refuel' | 'menu' = 'menu';
+  private mode: 'menu' | 'market' | 'refuel' | 'repair' = 'menu';
 
   constructor() {
     super({ key: 'StationScene' });
@@ -72,10 +39,8 @@ export class StationScene extends Phaser.Scene {
 
     this.generateMarket();
 
-    // Setup frame
     const frame = getFrameManager();
     frame.enterGameplay(`Station: ${this.station.name}`);
-    frame.showPanel(PANEL_WIDTH);
     frame.setNav([
       { id: 'station', label: 'Station', active: true },
       { id: 'undock', label: 'Undock', shortcut: 'ESC' },
@@ -83,45 +48,18 @@ export class StationScene extends Phaser.Scene {
       if (id === 'undock') this.undock();
     });
 
-    this.renderPanel();
+    // No side panel — use center overlay
+    frame.hidePanel();
+    frame.showCenterOverlay();
+
+    this.cameras.main.setBackgroundColor(0x080818);
+
+    this.renderCenter();
+    this.bindClickHandlers();
 
     getAudioManager().setAmbience('station');
 
-    // Background
-    this.cameras.main.setBackgroundColor(0x080818);
-
-    // Station visual
-    const gfx = this.add.graphics();
-    const cx = GAME_WIDTH / 2 + PANEL_WIDTH / 2;
-    const cy = GAME_HEIGHT / 2;
-
-    gfx.lineStyle(2, 0x445566, 0.6);
-    gfx.strokeRoundedRect(cx - 250, cy - 200, 500, 400, 12);
-    gfx.fillStyle(0x111128, 0.8);
-    gfx.fillRoundedRect(cx - 248, cy - 198, 496, 396, 10);
-
-    this.add.text(cx, cy - 170, this.station.name, {
-      fontFamily: 'monospace', fontSize: '20px', color: '#00aaff',
-    }).setOrigin(0.5);
-
-    this.add.text(cx, cy - 145, `Economy: ${this.station.economy} | Faction: ${FACTION_NAMES[this.station.factionIndex]}`, {
-      fontFamily: 'monospace', fontSize: '12px', color: '#667788',
-    }).setOrigin(0.5);
-
-    gfx.fillStyle(0x0a0a20, 1);
-    gfx.fillRect(cx - 200, cy - 110, 400, 280);
-    gfx.lineStyle(1, 0x334455, 0.5);
-    gfx.strokeRect(cx - 200, cy - 110, 400, 280);
-
-    this.add.text(cx, cy - 90, 'DOCKING BAY - WELCOME CAPTAIN', {
-      fontFamily: 'monospace', fontSize: '11px', color: '#00ff88',
-    }).setOrigin(0.5);
-
-    this.add.text(cx, cy + 190, 'Navigate with UP/DOWN | ENTER to select | ESC to undock', {
-      fontFamily: 'monospace', fontSize: '11px', color: '#445566',
-    }).setOrigin(0.5);
-
-    // Input
+    // Keyboard input
     this.input.keyboard!.on('keydown-ESC', () => this.handleEsc());
     this.input.keyboard!.on('keydown-UP', () => this.navigate(-1));
     this.input.keyboard!.on('keydown-DOWN', () => this.navigate(1));
@@ -130,12 +68,11 @@ export class StationScene extends Phaser.Scene {
     this.input.keyboard!.on('keydown-ENTER', () => this.select());
     this.input.keyboard!.on('keydown-B', () => this.tryBuy());
     this.input.keyboard!.on('keydown-V', () => this.trySell());
-    this.input.keyboard!.on('keydown-R', () => this.refuel());
+    this.input.keyboard!.on('keydown-R', () => this.handleR());
   }
 
   shutdown(): void {
-    const frame = getFrameManager();
-    frame.hidePanel();
+    getFrameManager().hideCenterOverlay();
   }
 
   // ─── MARKET GENERATION ──────────────────────────────────
@@ -148,93 +85,185 @@ export class StationScene extends Phaser.Scene {
     this.market = TRADE_GOODS.map(good => {
       const modifier = econMod[good.category] ?? 0;
       const variance = rng.float(-0.15, 0.15);
-      const priceMult = 1 + modifier + variance;
+
+      let displayName = good.name;
+      let cargoId = good.id;
+      let prefixMod = 0;
+      if (good.category !== 'mineral') {
+        const prefix = TRADE_PREFIXES[rng.int(0, TRADE_PREFIXES.length - 1)];
+        displayName = `${prefix.label} ${good.name}`;
+        cargoId = `${prefix.label.toLowerCase().replace(/\s+/g, '_')}:${good.id}`;
+        prefixMod = prefix.mod;
+      }
+
+      const priceMult = 1 + modifier + variance + prefixMod;
       const buyPrice = Math.max(1, Math.round(good.basePrice * priceMult));
       const sellPrice = Math.max(1, Math.round(buyPrice * 0.75));
       const stock = rng.int(0, 50);
-      return { good, buyPrice, sellPrice, stock };
+      return { good, cargoId, displayName, buyPrice, sellPrice, stock };
     });
   }
 
-  // ─── PANEL ────────────────────────────────────────────
+  // ─── RENDER ─────────────────────────────────────────────
 
-  private row(label: string, value: string, cls = ''): string {
-    return `<div class="row"><span class="label">${label}</span><span class="value ${cls}">${value}</span></div>`;
-  }
-
-  private renderPanel(): void {
+  private renderCenter(): void {
     const frame = getFrameManager();
     const ship = this.state.player.ship;
     const cargoUsed = getCargoUsed(this.state.player.cargo);
     const cargoMax = getCargoCapacity(ship);
 
-    // Update bottom bar
     frame.updateStatus(ship.hull, ship.fuel, cargoUsed, cargoMax, this.state.player.credits);
 
-    let html = `<div class="section">`;
-    html += `<div class="section-title">${this.station.name}</div>`;
-    html += this.row('Economy', this.station.economy);
-    html += this.row('Faction', FACTION_NAMES[this.station.factionIndex]);
+    let html = '';
+
+    // Station header
+    html += `<div class="station-header">`;
+    html += `<div class="station-name">${this.station.name}</div>`;
+    html += `<div class="station-info">${this.station.economy} Economy &bull; ${FACTION_NAMES[this.station.factionIndex]}</div>`;
     html += `</div>`;
 
-    html += `<div class="section">`;
-    html += `<div class="section-title">Your Ship</div>`;
-    html += this.row('Credits', `${this.state.player.credits} CR`, 'good');
-    html += this.row('Cargo', `${cargoUsed}/${cargoMax}`);
-    html += this.row('Fuel', `${Math.floor(ship.fuel.current)}/${ship.fuel.max}`);
-    html += this.row('Hull', `${Math.floor(ship.hull.current)}/${ship.hull.max}`);
+    // Ship summary bar
+    const hullPct = Math.round((ship.hull.current / ship.hull.max) * 100);
+    const fuelPct = Math.round((ship.fuel.current / ship.fuel.max) * 100);
+    const hullCls = hullPct < 25 ? 'bad' : hullPct < 50 ? 'warn' : '';
+    const fuelCls = fuelPct < 25 ? 'bad' : fuelPct < 50 ? 'warn' : '';
+
+    html += `<div class="ship-summary">`;
+    html += `<div class="ship-stat"><span class="stat-label">Credits</span><span class="stat-value good">${this.state.player.credits.toLocaleString()} CR</span></div>`;
+    html += `<div class="ship-stat"><span class="stat-label">Cargo</span><span class="stat-value">${cargoUsed}/${cargoMax}</span></div>`;
+    html += `<div class="ship-stat"><span class="stat-label">Fuel</span><span class="stat-value ${fuelCls}">${Math.floor(ship.fuel.current)}/${ship.fuel.max}</span></div>`;
+    html += `<div class="ship-stat"><span class="stat-label">Hull</span><span class="stat-value ${hullCls}">${Math.floor(ship.hull.current)}/${ship.hull.max}</span></div>`;
     html += `</div>`;
 
+    // Mode-specific content
     if (this.mode === 'menu') {
-      const items = ['Trade Goods', 'Refuel Ship', 'Repair Hull', 'Undock'];
-      html += `<div class="section">`;
-      html += `<div class="section-title">Services</div>`;
-      for (let i = 0; i < items.length; i++) {
-        const sel = i === this.selectedIndex;
-        html += `<div style="padding:4px 6px;margin:2px 0;background:${sel ? 'var(--frame-border-glow)' : 'transparent'};color:${sel ? 'var(--frame-accent-primary)' : 'var(--frame-text-primary)'};border-left:${sel ? '2px solid var(--frame-accent-primary)' : '2px solid transparent'}">`;
-        html += `${sel ? '> ' : '  '}${items[i]}</div>`;
-      }
-      html += `</div>`;
+      html += this.renderMenu();
     } else if (this.mode === 'market') {
-      html += `<div class="section">`;
-      html += `<div class="section-title">Market</div>`;
-      html += `<div style="font-size:10px;color:var(--frame-text-muted);margin-bottom:4px">[B]uy  [V]sell  [ESC]back</div>`;
-
-      for (let i = 0; i < this.market.length; i++) {
-        const listing = this.market[i];
-        const sel = i === this.selectedIndex;
-        const owned = this.state.player.cargo.find(c => c.id === listing.good.id);
-        const ownedQty = owned ? owned.quantity : 0;
-
-        html += `<div style="padding:3px 6px;margin:1px 0;background:${sel ? 'var(--frame-border-glow)' : 'transparent'};border-left:${sel ? '2px solid var(--frame-accent-primary)' : '2px solid transparent'};font-size:11px">`;
-        html += `<div style="color:${sel ? 'var(--frame-text-primary)' : 'var(--frame-text-secondary)'}">${listing.good.name}</div>`;
-        html += `<div class="row" style="font-size:10px"><span class="label">Buy: ${listing.buyPrice} CR</span><span class="label">Sell: ${listing.sellPrice} CR</span></div>`;
-        html += `<div class="row" style="font-size:10px"><span class="label">Stock: ${listing.stock}</span><span class="label">Owned: ${ownedQty}</span></div>`;
-        html += `</div>`;
-      }
-      html += `</div>`;
+      html += this.renderMarket();
     } else if (this.mode === 'refuel') {
-      const fuelNeeded = ship.fuel.max - ship.fuel.current;
-      const fuelCost = Math.ceil(fuelNeeded * 0.5);
-      html += `<div class="section">`;
-      html += `<div class="section-title">Refuel</div>`;
-      html += this.row('Fuel needed', `${Math.ceil(fuelNeeded)}`);
-      html += this.row('Cost', `${fuelCost} CR`, this.state.player.credits >= fuelCost ? 'good' : 'bad');
-      html += `<div class="action" style="margin-top:8px">[R] Refuel  [ESC] Back</div>`;
-      html += `</div>`;
+      html += this.renderRefuel();
+    } else if (this.mode === 'repair') {
+      html += this.renderRepair();
     }
 
-    // Cargo manifest
+    // Cargo hold
     if (this.state.player.cargo.length > 0) {
-      html += `<div class="section">`;
-      html += `<div class="section-title">Cargo Hold</div>`;
+      html += `<div class="center-section-title">Cargo Hold</div>`;
+      html += `<div class="cargo-list">`;
       for (const item of this.state.player.cargo) {
-        html += this.row(item.name, `x${item.quantity}`);
+        const isTradable = TRADE_GOODS.some(g => g.id === item.id || g.id === item.baseGoodId);
+        html += `<div class="cargo-row"><span class="cargo-name">${item.name}</span><span class="cargo-qty">x${item.quantity}${isTradable ? '' : ' (N/T)'}</span></div>`;
       }
       html += `</div>`;
     }
 
-    frame.setPanelContent(html);
+    frame.setCenterContent(html);
+    this.bindClickHandlers();
+  }
+
+  private renderMenu(): string {
+    const items = [
+      { label: 'Trade Goods', desc: 'Buy and sell commodities' },
+      { label: 'Refuel Ship', desc: 'Replenish fuel reserves' },
+      { label: 'Repair Hull', desc: 'Fix structural damage' },
+      { label: 'Undock', desc: 'Return to system space' },
+    ];
+
+    let html = `<div class="center-section-title">Station Services</div>`;
+    for (let i = 0; i < items.length; i++) {
+      const sel = i === this.selectedIndex ? ' selected' : '';
+      html += `<div class="menu-item${sel}" data-menu-idx="${i}">`;
+      html += `${sel ? '&#9654; ' : ''}${items[i].label}`;
+      html += `<div class="menu-desc">${items[i].desc}</div>`;
+      html += `</div>`;
+    }
+    html += `<div class="controls-hint">UP/DOWN to navigate &bull; ENTER to select</div>`;
+    return html;
+  }
+
+  private renderMarket(): string {
+    let html = `<div class="center-section-title">Trade Market <span style="font-size:10px;color:var(--frame-text-muted);letter-spacing:0">[B]uy [V]sell [ESC]back</span></div>`;
+    html += `<table class="market-table">`;
+    html += `<tr><th>Good</th><th class="right">Buy</th><th class="right">Sell</th><th class="right">Stock</th><th class="right">Owned</th></tr>`;
+
+    for (let i = 0; i < this.market.length; i++) {
+      const listing = this.market[i];
+      const sel = i === this.selectedIndex ? ' selected' : '';
+      const ownedQty = this.state.player.cargo
+        .filter(c => c.id === listing.cargoId || c.id === listing.good.id || c.baseGoodId === listing.good.id)
+        .reduce((sum, c) => sum + c.quantity, 0);
+
+      html += `<tr class="${sel}" data-market-idx="${i}">`;
+      html += `<td class="good-name">${listing.displayName}</td>`;
+      html += `<td class="right">${listing.buyPrice} CR</td>`;
+      html += `<td class="right">${listing.sellPrice} CR</td>`;
+      html += `<td class="right">${listing.stock}</td>`;
+      html += `<td class="right">${ownedQty > 0 ? ownedQty : '-'}</td>`;
+      html += `</tr>`;
+    }
+
+    html += `</table>`;
+    html += `<div class="controls-hint">UP/DOWN to select &bull; [B] Buy &bull; [V] Sell &bull; ESC back</div>`;
+    return html;
+  }
+
+  private renderRefuel(): string {
+    const ship = this.state.player.ship;
+    const fuelNeeded = ship.fuel.max - ship.fuel.current;
+    const fuelCost = Math.ceil(fuelNeeded * 0.5);
+    const canAfford = this.state.player.credits >= fuelCost;
+
+    let html = `<div class="center-section-title">Refuel Ship</div>`;
+    html += `<div class="service-panel">`;
+    html += `<div class="row"><span class="label">Current Fuel</span><span class="value">${Math.floor(ship.fuel.current)} / ${ship.fuel.max}</span></div>`;
+    html += `<div class="row"><span class="label">Fuel Needed</span><span class="value">${Math.ceil(fuelNeeded)}</span></div>`;
+    html += `<div class="row"><span class="label">Cost</span><span class="value ${canAfford ? 'good' : 'bad'}">${fuelCost} CR</span></div>`;
+    html += `</div>`;
+    html += `<div class="controls-hint">[R] Refuel &bull; ESC back</div>`;
+    return html;
+  }
+
+  private renderRepair(): string {
+    const ship = this.state.player.ship;
+    const dmg = ship.hull.max - ship.hull.current;
+    const cost = Math.ceil(dmg * 2);
+    const canAfford = this.state.player.credits >= cost;
+
+    let html = `<div class="center-section-title">Repair Hull</div>`;
+    html += `<div class="service-panel">`;
+    html += `<div class="row"><span class="label">Current Hull</span><span class="value">${Math.floor(ship.hull.current)} / ${ship.hull.max}</span></div>`;
+    html += `<div class="row"><span class="label">Damage</span><span class="value">${Math.ceil(dmg)}</span></div>`;
+    html += `<div class="row"><span class="label">Repair Cost</span><span class="value ${canAfford ? 'good' : 'bad'}">${cost} CR</span></div>`;
+    html += `</div>`;
+    html += `<div class="controls-hint">[ENTER] Repair &bull; ESC back</div>`;
+    return html;
+  }
+
+  // ─── CLICK HANDLERS ──────────────────────────────────────
+
+  private bindClickHandlers(): void {
+    const frame = getFrameManager();
+    const el = frame.getCenterContentEl();
+
+    // Menu item clicks
+    el.querySelectorAll('.menu-item[data-menu-idx]').forEach(item => {
+      item.addEventListener('click', () => {
+        const idx = parseInt((item as HTMLElement).dataset.menuIdx!, 10);
+        this.selectedIndex = idx;
+        getAudioManager().playSfx('ui_confirm');
+        this.select();
+      });
+    });
+
+    // Market row clicks
+    el.querySelectorAll('tr[data-market-idx]').forEach(row => {
+      row.addEventListener('click', () => {
+        const idx = parseInt((row as HTMLElement).dataset.marketIdx!, 10);
+        this.selectedIndex = idx;
+        getAudioManager().playSfx('ui_navigate');
+        this.renderCenter();
+      });
+    });
   }
 
   // ─── NAVIGATION ─────────────────────────────────────────
@@ -242,9 +271,10 @@ export class StationScene extends Phaser.Scene {
   private navigate(dir: number): void {
     let max = 4;
     if (this.mode === 'market') max = this.market.length;
+    if (max === 0) return;
     this.selectedIndex = (this.selectedIndex + dir + max) % max;
     getAudioManager().playSfx('ui_navigate');
-    this.renderPanel();
+    this.renderCenter();
   }
 
   private select(): void {
@@ -253,22 +283,31 @@ export class StationScene extends Phaser.Scene {
       switch (this.selectedIndex) {
         case 0: this.mode = 'market'; this.selectedIndex = 0; break;
         case 1: this.mode = 'refuel'; break;
-        case 2: this.repairHull(); break;
+        case 2: this.mode = 'repair'; this.selectedIndex = 0; this.repairHull(); return;
         case 3: this.undock(); return;
       }
     } else if (this.mode === 'market') {
       this.tryBuy();
+    } else if (this.mode === 'repair') {
+      this.repairHull();
+      return;
     }
-    this.renderPanel();
+    this.renderCenter();
   }
 
   private handleEsc(): void {
     if (this.mode !== 'menu') {
       this.mode = 'menu';
       this.selectedIndex = 0;
-      this.renderPanel();
+      this.renderCenter();
     } else {
       this.undock();
+    }
+  }
+
+  private handleR(): void {
+    if (this.mode === 'refuel' || this.mode === 'menu') {
+      this.refuel();
     }
   }
 
@@ -288,19 +327,20 @@ export class StationScene extends Phaser.Scene {
     listing.stock--;
     getAudioManager().playSfx('trade_buy');
 
-    const existing = this.state.player.cargo.find(c => c.id === listing.good.id);
+    const existing = this.state.player.cargo.find(c => c.id === listing.cargoId);
     if (existing) {
       existing.quantity++;
     } else {
       this.state.player.cargo.push({
-        id: listing.good.id,
-        name: listing.good.name,
+        id: listing.cargoId,
+        name: listing.displayName,
         quantity: 1,
-        value: listing.good.basePrice,
+        value: listing.buyPrice,
+        baseGoodId: listing.good.id,
       });
     }
 
-    this.renderPanel();
+    this.renderCenter();
   }
 
   private trySell(): void {
@@ -308,7 +348,11 @@ export class StationScene extends Phaser.Scene {
     const listing = this.market[this.selectedIndex];
     if (!listing) return;
 
-    const owned = this.state.player.cargo.find(c => c.id === listing.good.id);
+    const owned = this.state.player.cargo.find(c =>
+      c.id === listing.cargoId ||
+      c.id === listing.good.id ||
+      c.baseGoodId === listing.good.id
+    );
     if (!owned || owned.quantity <= 0) return;
 
     this.state.player.credits += listing.sellPrice;
@@ -320,7 +364,7 @@ export class StationScene extends Phaser.Scene {
       this.state.player.cargo = this.state.player.cargo.filter(c => c.quantity > 0);
     }
 
-    this.renderPanel();
+    this.renderCenter();
   }
 
   private refuel(): void {
@@ -333,7 +377,7 @@ export class StationScene extends Phaser.Scene {
     this.state.player.credits -= cost;
     ship.fuel.current = ship.fuel.max;
     getAudioManager().playSfx('refuel');
-    this.renderPanel();
+    this.renderCenter();
   }
 
   private repairHull(): void {
@@ -346,16 +390,16 @@ export class StationScene extends Phaser.Scene {
     this.state.player.credits -= cost;
     ship.hull.current = ship.hull.max;
     getAudioManager().playSfx('repair');
-    this.renderPanel();
+    this.renderCenter();
   }
 
   private undock(): void {
     getAudioManager().playSfx('undock');
-    const frame = getFrameManager();
-    frame.hidePanel();
+    getFrameManager().hideCenterOverlay();
     this.scene.start('TransitionScene', {
       type: 'undock',
       targetScene: 'SystemScene',
+      targetData: { fromStation: true },
       text: `UNDOCKING FROM ${this.station.name.toUpperCase()}...`,
     });
   }

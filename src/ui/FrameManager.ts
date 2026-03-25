@@ -22,6 +22,7 @@ export class FrameManager {
   private statusFuelEl!: HTMLElement;
   private statusCargoEl!: HTMLElement;
   private statusCreditsEl!: HTMLElement;
+  private centerOverlayEl!: HTMLElement;
   private cornerEls!: HTMLElement[];
   private edgeEls!: HTMLElement[];
   private initialized = false;
@@ -93,6 +94,11 @@ export class FrameManager {
         <div class="frame-panel-content"></div>
       </div>
 
+      <!-- Center overlay (for full-screen UI like station) -->
+      <div class="frame-center-overlay">
+        <div class="frame-center-content"></div>
+      </div>
+
       <!-- Canvas container -->
       <div class="frame-canvas-area"></div>
     `;
@@ -110,6 +116,7 @@ export class FrameManager {
     this.statusFuelEl = this.frameEl.querySelector('.fuel-fill')!;
     this.statusCargoEl = this.frameEl.querySelector('.cargo-fill')!;
     this.statusCreditsEl = this.frameEl.querySelector('.credits-value')!;
+    this.centerOverlayEl = this.frameEl.querySelector('.frame-center-overlay')!;
     this.cornerEls = Array.from(this.frameEl.querySelectorAll('.frame-corner'));
     this.edgeEls = Array.from(this.frameEl.querySelectorAll('.frame-edge'));
 
@@ -298,6 +305,25 @@ export class FrameManager {
     this.leftPanelEl.classList.remove('visible');
   }
 
+  // --- Center Overlay ---
+
+  setCenterContent(html: string): void {
+    const content = this.centerOverlayEl.querySelector('.frame-center-content')!;
+    content.innerHTML = html;
+  }
+
+  getCenterContentEl(): HTMLElement {
+    return this.centerOverlayEl.querySelector('.frame-center-content')!;
+  }
+
+  showCenterOverlay(): void {
+    this.centerOverlayEl.classList.add('visible');
+  }
+
+  hideCenterOverlay(): void {
+    this.centerOverlayEl.classList.remove('visible');
+  }
+
   // --- Visibility ---
 
   showTopBar(): void { this.topBarEl.classList.add('visible'); }
@@ -318,6 +344,7 @@ export class FrameManager {
     this.showFrame();
     this.showTopBar();
     this.showBottomBar();
+    this.hideCenterOverlay();
     this.setSceneTitle(sceneTitle);
   }
 
@@ -327,6 +354,7 @@ export class FrameManager {
     this.hideTopBar();
     this.hideBottomBar();
     this.hidePanel();
+    this.hideCenterOverlay();
   }
 
   // --- Canvas area access (for Phaser parent) ---

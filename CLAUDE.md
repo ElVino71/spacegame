@@ -38,6 +38,7 @@ All scene-to-scene transitions go through **TransitionScene** (warp/land/takeoff
 ### Scene Integration Pattern
 
 ```typescript
+// Scenes with left sidebar (most scenes):
 create() {
   const frame = getFrameManager();
   frame.enterGameplay('Title');
@@ -48,6 +49,18 @@ create() {
 }
 shutdown() {
   getFrameManager().hidePanel();
+}
+
+// Scenes with center overlay (e.g. StationScene):
+create() {
+  const frame = getFrameManager();
+  frame.enterGameplay('Title');
+  frame.hidePanel();
+  frame.showCenterOverlay();
+  frame.setCenterContent(html);     // full-width HTML UI
+}
+shutdown() {
+  getFrameManager().hideCenterOverlay();
 }
 ```
 
@@ -71,6 +84,16 @@ The game frame uses 32×32 procedurally generated tile PNGs displayed at 3× (96
 
 CSS uses `--frame-tile-size: 96px` for tile display and `--frame-content-inset: 18px` for content positioning (bars, panels sit just inside the visible border, not 96px in).
 
+### Ship Interior Tiles
+
+The Ship Interior scene is a side-view cross-section with rooms connected by walkable corridors. Player walks left/right on the floor only (1D horizontal movement). Each room has themed 32×32 tile backgrounds displayed at 2× scale in Phaser:
+
+- `scripts/generate-room-tiles.js` — 5 themes × 13 tiles each in `assets/tiles/rooms/{theme}/`:
+  - `floor.png`, `wall.png`, `corridor.png` — structural tiles
+  - `bg_bridge.png`, `bg_engine.png`, `bg_weapons.png`, `bg_shields.png`, `bg_cargo.png`, `bg_sensors.png`, `bg_computer.png`, `bg_mining.png`, `bg_life_support.png`, `bg_hull.png` — room-specific backgrounds
+
+Room types map to ship module slot types. Falls back to graphics-drawn decorations if tiles aren't loaded. Theme selection follows `SHIP_THEME_MAP` (ship class → theme).
+
 ### Rover & Surface Cargo
 
 The player explores planet surfaces in a rover vehicle (sprite rotates with movement direction). The rover has 5 cargo slots separate from ship cargo. Mined minerals go to rover cargo; on liftoff, rover cargo transfers to ship cargo automatically.
@@ -78,6 +101,20 @@ The player explores planet surfaces in a rover vehicle (sprite rotates with move
 ### Procedural Generation
 
 Everything is seeded via `SeededRandom` (Mulberry32). Galaxy seed → per-system fork → deterministic planets/stations/surfaces. Galaxy uses Poisson disk placement, faction BFS territory assignment, distance-threshold connectivity.
+
+### Centralized Game Data (`src/data/`)
+
+All human-editable game content lives in `src/data/` for easy tweaking:
+
+- `trade.ts` — Trade goods, price prefixes (e.g. "Exotic", "Bootleg"), economy modifiers
+- `ships.ts` — Ship templates (hull/fuel/slots per class), starter modules, starter values
+- `planets.ts` — Planet configs (landable/mineable/atmosphere/ruin chance), color palettes, mineral types, biome configs (flora/fauna per planet type)
+- `factions.ts` — Faction names
+- `names.ts` — Name generation word lists (system/planet/station syllables)
+- `misc.ts` — Jokes, flavour text
+- `index.ts` — Barrel re-exports
+
+Source files import from `src/data/` for content and keep only structural types/interfaces locally. Non-mineral trade goods get seeded prefixes per station that modify display name and price.
 
 ### Data Model
 
@@ -103,7 +140,8 @@ All SFX are synthesized procedurally (oscillators, filters, noise). No audio fil
 - **Camera viewport offset**: Scenes with left panels offset `cameras.main.setViewport(PANEL_WIDTH, 0, ...)`.
 - **Frame lifecycle**: Always call `frame.hidePanel()` in `shutdown()` or `create()` if the scene doesn't use the panel. The panel persists across scene transitions.
 - **Phaser text positioning**: UI text using `setScrollFactor(0)` must be placed at (30, 30) or further from edges to clear the 96px frame border tiles.
-- **Constants**: Game dimensions (1280x720), colors, faction names, type arrays all in `src/utils/Constants.ts`.
+- **Constants**: Game dimensions (1280x720), colors, type arrays in `src/utils/Constants.ts`. Game content data (trade goods, ships, planets, names, factions) in `src/data/`.
+- **Data directory rule**: All new game content data (arrays of items, word lists, config tables, lore entries, bios, stat tables, etc.) **must** go in `src/data/`. Scene and entity files should only contain logic — never inline content data. If adding a new content domain (e.g. lore, NPCs, quests), create a new file in `src/data/` and add it to the barrel export in `src/data/index.ts`.
 
 I want claude to update the documents after each major step has been done, or more simply just keep the documents up to date.
 I want claude to make a file for the current planned piece of work before the work starts, so if we run out of tokens, we can review this file

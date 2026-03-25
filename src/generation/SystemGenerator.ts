@@ -1,42 +1,8 @@
 import { SeededRandom } from '../utils/SeededRandom';
 import { StarSystemData, PlanetData, AsteroidBeltData, StationData } from '../entities/StarSystem';
-import { PlanetType, ECONOMY_TYPES } from '../utils/Constants';
+import { ECONOMY_TYPES } from '../utils/Constants';
 import { generatePlanetName, generateStationName } from './NameGenerator';
-
-const PLANET_COLORS: Record<PlanetType, number[]> = {
-  rocky:       [0x888888, 0x996644, 0xaa8866, 0x776655],
-  desert:      [0xddaa55, 0xcc9944, 0xbb8833, 0xeebb66],
-  ice:         [0xaaddff, 0x88bbdd, 0xcceeff, 0x99ccee],
-  lush:        [0x44aa44, 0x338833, 0x55bb55, 0x66cc66],
-  volcanic:    [0xcc4422, 0xdd5533, 0xaa3311, 0xff6644],
-  gas_giant:   [0xddaa77, 0xcc8855, 0xee9966, 0xbb7744],
-  ocean:       [0x2266aa, 0x3377bb, 0x1155aa, 0x4488cc],
-  barren_moon: [0x666666, 0x777777, 0x555555, 0x888888],
-};
-
-interface PlanetTypeConfig {
-  type: PlanetType;
-  landable: boolean;
-  mineable: boolean;
-  atmospheres: ('none' | 'thin' | 'breathable' | 'toxic' | 'crushing')[];
-  ruinChance: number;
-  settlementChance: number;
-  minSize: number;
-  maxSize: number;
-}
-
-const PLANET_CONFIGS: PlanetTypeConfig[] = [
-  { type: 'rocky',       landable: true,  mineable: true,  atmospheres: ['none', 'thin'],                   ruinChance: 0.3,  settlementChance: 0.2, minSize: 8,  maxSize: 16 },
-  { type: 'desert',      landable: true,  mineable: true,  atmospheres: ['thin', 'none'],                   ruinChance: 0.35, settlementChance: 0.15, minSize: 10, maxSize: 18 },
-  { type: 'ice',         landable: true,  mineable: true,  atmospheres: ['none', 'thin'],                   ruinChance: 0.25, settlementChance: 0.1, minSize: 8,  maxSize: 15 },
-  { type: 'lush',        landable: true,  mineable: false, atmospheres: ['breathable'],                     ruinChance: 0.2,  settlementChance: 0.6, minSize: 12, maxSize: 22 },
-  { type: 'volcanic',    landable: true,  mineable: true,  atmospheres: ['toxic', 'thin'],                  ruinChance: 0.15, settlementChance: 0.05, minSize: 10, maxSize: 18 },
-  { type: 'gas_giant',   landable: false, mineable: true,  atmospheres: ['crushing'],                       ruinChance: 0,    settlementChance: 0,   minSize: 25, maxSize: 45 },
-  { type: 'ocean',       landable: true,  mineable: false, atmospheres: ['breathable', 'thin'],             ruinChance: 0.2,  settlementChance: 0.3, minSize: 14, maxSize: 24 },
-  { type: 'barren_moon', landable: true,  mineable: true,  atmospheres: ['none'],                           ruinChance: 0.2,  settlementChance: 0.05, minSize: 5,  maxSize: 10 },
-];
-
-const MINERAL_TYPES = ['Iron', 'Copper', 'Titanium', 'Platinum', 'Crystals', 'Uranium', 'Helium-3', 'Rare Earth'];
+import { PLANET_COLORS, PLANET_CONFIGS, MINERAL_TYPES, PlanetTypeConfig } from '../data/planets';
 
 function pickPlanetType(rng: SeededRandom, orbitIndex: number, totalOrbits: number): PlanetTypeConfig {
   // Inner orbits: rocky/desert/volcanic. Middle: lush/ocean. Outer: ice/gas_giant/barren

@@ -1,10 +1,11 @@
-import { ShipData, SHIP_TEMPLATES, STARTER_MODULES, ShipModule } from './Ship';
+import { ShipData, SHIP_TEMPLATES, STARTER_MODULES, STARTER_SHIP_NAME, STARTER_CREDITS, STARTER_SHIP_CLASS, ShipModule } from './Ship';
 
 export interface CargoItem {
   id: string;
   name: string;
   quantity: number;
-  value: number; // base value per unit
+  value: number; // price per unit at time of acquisition
+  baseGoodId?: string; // links back to TradeGood.id for prefixed variants
 }
 
 export interface PlayerData {
@@ -19,7 +20,7 @@ export interface PlayerData {
 }
 
 export function createNewPlayer(): PlayerData {
-  const template = SHIP_TEMPLATES.scout;
+  const template = SHIP_TEMPLATES[STARTER_SHIP_CLASS];
 
   const slots = template.slots.map(s => ({ ...s, module: null as ShipModule | null }));
 
@@ -33,7 +34,7 @@ export function createNewPlayer(): PlayerData {
 
   const ship: ShipData = {
     ...template,
-    name: 'Wanderer',
+    name: STARTER_SHIP_NAME,
     slots,
     hull: { ...template.hull },
     fuel: { ...template.fuel },
@@ -46,7 +47,7 @@ export function createNewPlayer(): PlayerData {
 
   return {
     ship,
-    credits: 1000,
+    credits: STARTER_CREDITS,
     cargo: [],
     currentSystemId: 0,
     reputation: { 0: 20, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },

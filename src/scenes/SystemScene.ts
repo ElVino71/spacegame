@@ -44,20 +44,55 @@ export class SystemScene extends Phaser.Scene {
   // Audio
   private thrustSfxCooldown = 0;
 
+  // Data passed from planet/station return
+  private returnData: { fromPlanetId?: number; fromStation?: boolean } | null = null;
+
   constructor() {
     super({ key: 'SystemScene' });
+  }
+
+  init(data?: { fromPlanetId?: number; fromStation?: boolean }): void {
+    this.returnData = data && (data.fromPlanetId !== undefined || data.fromStation) ? data : null;
   }
 
   create(): void {
     this.state = getGameState();
     this.system = this.state.getCurrentSystem();
 
-    // Reset ship position
-    this.shipX = 0;
-    this.shipY = -200;
+    // Position ship — near the body we returned from, or default
+    if (this.returnData?.fromPlanetId !== undefined) {
+      const planet = this.system.planets.find(p => p.id === this.returnData!.fromPlanetId);
+      if (planet) {
+        const px = Math.cos(planet.orbitAngle) * planet.orbitRadius;
+        const py = Math.sin(planet.orbitAngle) * planet.orbitRadius;
+        const offset = planet.size + 40;
+        this.shipX = px + offset;
+        this.shipY = py;
+      } else {
+        this.shipX = 0;
+        this.shipY = -200;
+      }
+    } else if (this.returnData?.fromStation && this.system.station) {
+      const st = this.system.station;
+      const sx = Math.cos(st.orbitAngle) * st.orbitRadius;
+      const sy = Math.sin(st.orbitAngle) * st.orbitRadius;
+      this.shipX = sx + 40;
+      this.shipY = sy;
+    } else {
+      // Arriving from a jump — spawn at the edge of the system so the player
+      // has to explore to find planets/stations.
+      const maxOrbit = this.getMaxOrbitRadius();
+      const arrivalRadius = maxOrbit + 300; // just inside camera bounds (maxOrbit + 400)
+      const arrivalAngle = (this.system.planets.length > 0
+        ? this.system.planets[0].orbitAngle + Math.PI  // opposite side from first planet
+        : Math.PI * 1.5);  // default: top of system
+      this.shipX = Math.cos(arrivalAngle) * arrivalRadius;
+      this.shipY = Math.sin(arrivalAngle) * arrivalRadius;
+    }
     this.shipVx = 0;
     this.shipVy = 0;
-    this.shipAngle = 0;
+    // Point ship toward the center of the system
+    this.shipAngle = Math.atan2(-this.shipY, -this.shipX);
 
     // Setup frame
     const frame = getFrameManager();
@@ -75,16 +110,19 @@ export class SystemScene extends Phaser.Scene {
       }
     });
 
-    // Camera
-    this.cameras.main.setBackgroundColor(0x050510);
+    // Camera — fully reset to avoid stale zoom/scroll from previous scene run
+    const cam = this.cameras.main;
+    cam.setBackgroundColor(0x050510);
+    cam.stopFollow();
+    cam.setZoom(1);
+    cam.setScroll(0, 0);
+    cam.setAlpha(1);
+    cam.clearAlpha();
+    cam.resetFX();
     const maxOrbit = this.getMaxOrbitRadius();
     const bounds = maxOrbit + 400;
-    this.cameras.main.setBounds(-bounds, -bounds, bounds * 2, bounds * 2);
-    this.cameras.main.startFollow(
-      { x: this.shipX, y: this.shipY } as any,
-      false, 0.1, 0.1
-    );
-    this.cameras.main.setZoom(1);
+    cam.setBounds(-bounds, -bounds, bounds * 2, bounds * 2);
+    cam.centerOn(this.shipX, this.shipY);
 
     // Background starfield
     this.bgGraphics = this.add.graphics().setDepth(-2);
@@ -130,7 +168,7 @@ export class SystemScene extends Phaser.Scene {
       e.preventDefault();
       this.scene.start('ShipInteriorScene');
     });
-    this.input.keyboard!.on('keydown-SPACE', () => this.interact());
+    this.input.keyboard!.on('keydown-ENTER', () => this.interact());
     this.input.keyboard!.on('keydown-T', () => this.scene.start('TerminalScene'));
 
     // Zoom
@@ -404,7 +442,7 @@ export class SystemScene extends Phaser.Scene {
       let info = `${p.name}\n`;
       info += `Type: ${p.type.replace('_', ' ')}\n`;
       info += `Atmosphere: ${p.atmosphere}\n`;
-      if (p.landable) info += `[SPACE] Land on planet\n`;
+      if (p.landable) info += `[ENTER] Land on planet\n`;
       else info += `Cannot land\n`;
       if (p.hasRuins) info += `Anomalous readings detected\n`;
       if (p.hasSettlement) info += `Settlement detected\n`;
@@ -412,7 +450,7 @@ export class SystemScene extends Phaser.Scene {
       this.infoText.setText(info);
     } else if (this.nearStation) {
       const st = this.system.station!;
-      this.infoText.setText(`${st.name}\nEconomy: ${st.economy}\n\n[SPACE] Dock at station`);
+      this.infoText.setText(`${st.name}\nEconomy: ${st.economy}\n\n[ENTER] Dock at station`);
     } else {
       this.infoText.setText(`System: ${this.system.name}\nPlanets: ${this.system.planets.length}`);
     }

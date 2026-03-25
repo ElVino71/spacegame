@@ -4,6 +4,7 @@ import { COLORS, FACTION_NAMES } from '../utils/Constants';
 import { getCargoCapacity, getCargoUsed, getShieldCapacity, getJumpRange, getShipSpeed } from '../entities/Player';
 import { getFrameManager } from '../ui/FrameManager';
 import { getAudioManager } from '../audio/AudioManager';
+import { JOKES } from '../data/misc';
 
 interface TerminalLine {
   text: string;
@@ -18,6 +19,10 @@ export class TerminalScene extends Phaser.Scene {
   private inputText!: Phaser.GameObjects.Text;
   private cursorBlink = true;
   private maxVisibleLines = 30;
+  private typingQueue: TerminalLine[] = [];
+  private currentTypingLine: { text: string; color: string; index: number } | null = null;
+  private typingTimer: Phaser.Time.TimerEvent | null = null;
+  private isTyping = false;
 
   constructor() {
     super({ key: 'TerminalScene' });
@@ -85,7 +90,6 @@ export class TerminalScene extends Phaser.Scene {
     });
 
     // Boot message
-    this.lines = [];
     this.printLine('NavComp OS booting...', '#00aa55');
     this.printLine('Systems nominal. All modules online.', '#00aa55');
     this.printLine('');
@@ -118,8 +122,61 @@ export class TerminalScene extends Phaser.Scene {
   }
 
   private printLine(text: string, color: string = '#00dd77'): void {
-    this.lines.push({ text, color });
-    this.updateOutput();
+    if (text === '') {
+      this.lines.push({ text: '', color });
+      this.updateOutput();
+      return;
+    }
+    this.typingQueue.push({ text, color });
+    this.processTypingQueue();
+  }
+
+  private processTypingQueue(): void {
+    if (this.isTyping || this.typingQueue.length === 0) return;
+
+    this.isTyping = true;
+    const nextLine = this.typingQueue.shift()!;
+    this.currentTypingLine = { ...nextLine, index: 0 };
+    
+    // Add an empty line to 'lines' that we will fill character by character
+    this.lines.push({ text: '', color: nextLine.color });
+
+    this.typingTimer = this.time.addEvent({
+      delay: 15, // 15ms per character
+      callback: this.typeNextCharacter,
+      callbackScope: this,
+      loop: true
+    });
+  }
+
+  private typeNextCharacter(): void {
+    if (!this.currentTypingLine) return;
+
+    const { text, index } = this.currentTypingLine;
+    if (index < text.length) {
+      // Add one character to the last line in our lines array
+      this.lines[this.lines.length - 1].text += text[index];
+      this.currentTypingLine.index++;
+      
+      // Play sound every few characters or every character? Let's try every character first.
+      // Space shouldn't make sound? Maybe it should.
+      if (text[index] !== ' ') {
+        getAudioManager().playSfx('terminal_key');
+      }
+
+      this.updateOutput();
+    } else {
+      // Finished typing this line
+      if (this.typingTimer) {
+        this.typingTimer.destroy();
+        this.typingTimer = null;
+      }
+      this.currentTypingLine = null;
+      this.isTyping = false;
+      
+      // Check for more lines in queue
+      this.processTypingQueue();
+    }
   }
 
   private updateOutput(): void {
@@ -173,6 +230,13 @@ export class TerminalScene extends Phaser.Scene {
       case 'clear':
       case 'cls':
         this.lines = [];
+        this.typingQueue = [];
+        if (this.typingTimer) {
+          this.typingTimer.destroy();
+          this.typingTimer = null;
+        }
+        this.currentTypingLine = null;
+        this.isTyping = false;
         this.updateOutput();
         break;
       case 'exit':
@@ -397,14 +461,7 @@ export class TerminalScene extends Phaser.Scene {
   }
 
   private cmdJoke(): void {
-    const jokes = [
-      'Why did the astronaut break up with his girlfriend? Because he needed more space.',
-      'I told a chemistry joke in zero gravity. There was no reaction.',
-      'What do you call a spaceship that drips? A crying saucer.',
-      'How do you organize a space party? You planet.',
-      'The rotation of Earth really makes my day.',
-    ];
-    const joke = jokes[Math.floor(Math.random() * jokes.length)];
+    const joke = JOKES[Math.floor(Math.random() * JOKES.length)];
     this.printLine(joke, '#ffcc00');
   }
 }

@@ -1,37 +1,10 @@
 import { SeededRandom } from '../utils/SeededRandom';
-
-const PREFIXES = [
-  'Al', 'Be', 'Cor', 'Del', 'Er', 'Fa', 'Gal', 'Hel', 'Ix', 'Jen',
-  'Kel', 'Lyr', 'Mir', 'Nex', 'Or', 'Pho', 'Qua', 'Rig', 'Sol', 'Tar',
-  'Ul', 'Vec', 'Wyr', 'Xen', 'Yar', 'Zel', 'Ash', 'Bri', 'Cyn', 'Dra',
-  'Eth', 'Fyn', 'Gry', 'Hav', 'Ith', 'Jor', 'Kra', 'Lyn', 'Mor', 'Nav',
-];
-
-const MIDDLES = [
-  'ta', 'ra', 'na', 'si', 'lo', 've', 'ma', 'ri', 'go', 'de',
-  'pha', 'thi', 'zo', 'ka', 'mi', 'nu', 'pe', 'sa', 'ti', 'wa',
-  '', '', '', '', // empty for shorter names
-];
-
-const SUFFIXES = [
-  'ris', 'tus', 'nia', 'xis', 'lon', 'mir', 'ven', 'cor', 'dex', 'pho',
-  'gen', 'nar', 'tos', 'lux', 'zar', 'ium', 'ora', 'eth', 'wyn', 'thar',
-  'is', 'on', 'ar', 'us', 'ia', 'ax', 'en', 'os',
-];
-
-const GREEK = ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon', 'Zeta', 'Eta', 'Theta'];
-
-const PLANET_PREFIXES = [
-  'Ter', 'Gor', 'Pla', 'Neb', 'Cry', 'Vol', 'Oce', 'Dun',
-  'Syl', 'Ash', 'Fro', 'Haz', 'Lum', 'Sto', 'Ven', 'Ari',
-];
-
-const STATION_TYPES = ['Station', 'Outpost', 'Port', 'Hub', 'Dock', 'Waypoint', 'Beacon'];
+import { SYSTEM_PREFIXES, SYSTEM_MIDDLES, NAME_SUFFIXES, GREEK_LETTERS, PLANET_PREFIXES, STATION_TYPES } from '../data/names';
 
 export function generateSystemName(rng: SeededRandom): string {
-  const prefix = rng.pick(PREFIXES);
-  const middle = rng.pick(MIDDLES);
-  const suffix = rng.pick(SUFFIXES);
+  const prefix = rng.pick(SYSTEM_PREFIXES);
+  const middle = rng.pick(SYSTEM_MIDDLES);
+  const suffix = rng.pick(NAME_SUFFIXES);
 
   // Sometimes add a catalog number
   if (rng.chance(0.3)) {
@@ -41,11 +14,11 @@ export function generateSystemName(rng: SeededRandom): string {
 }
 
 export function generatePlanetName(systemName: string, index: number, rng: SeededRandom): string {
-  if (rng.chance(0.5) && index < GREEK.length) {
-    return `${systemName} ${GREEK[index]}`;
+  if (rng.chance(0.5) && index < GREEK_LETTERS.length) {
+    return `${systemName} ${GREEK_LETTERS[index]}`;
   }
   const prefix = rng.pick(PLANET_PREFIXES);
-  const suffix = rng.pick(SUFFIXES);
+  const suffix = rng.pick(NAME_SUFFIXES);
   return `${prefix}${suffix}`;
 }
 
@@ -54,6 +27,6 @@ export function generateStationName(systemName: string, rng: SeededRandom): stri
   if (rng.chance(0.5)) {
     return `${systemName} ${stationType}`;
   }
-  const prefix = rng.pick(PREFIXES);
+  const prefix = rng.pick(SYSTEM_PREFIXES);
   return `${prefix} ${stationType}`;
 }

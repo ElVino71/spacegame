@@ -50,11 +50,5 @@ export const ECONOMY_TYPES = [
 ] as const;
 export type EconomyType = typeof ECONOMY_TYPES[number];
 
-export const FACTION_NAMES = [
-  'Terran Accord',
-  'Krai Collective',
-  'Syndicate',
-  'Luminari',
-  'Void Runners',
-  'Independent',
-] as const;
+// FACTION_NAMES moved to src/data/factions.ts — re-exported here for convenience
+export { FACTION_NAMES } from '../data/factions';

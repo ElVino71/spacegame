@@ -6,6 +6,7 @@ import { SeededRandom } from '../utils/SeededRandom';
 import { CargoItem, getCargoCapacity, getCargoUsed } from '../entities/Player';
 import { getFrameManager } from '../ui/FrameManager';
 import { getAudioManager } from '../audio/AudioManager';
+import { BIOME_CONFIGS } from '../data/planets';
 
 const MAP_SIZE = 128;
 const TILE_SIZE = 16;
@@ -24,54 +25,6 @@ interface SurfaceTile {
   faunaType?: string; // e.g. 'critter_1', 'grazer', 'predator'
 }
 
-/** Biome-specific flora/fauna distributions per planet type */
-interface BiomeConfig {
-  floraChance: number;   // 0-1 probability of flora on a ground tile
-  faunaChance: number;   // 0-1 probability of fauna on a ground tile
-  flora: string[];       // available flora types for this biome
-  fauna: string[];       // available fauna types for this biome
-}
-
-const BIOME_CONFIGS: Record<string, BiomeConfig> = {
-  lush: {
-    floraChance: 0.15, faunaChance: 0.04,
-    flora: ['tree_1', 'tree_2', 'bush_1', 'bush_2', 'flower', 'moss', 'vine'],
-    fauna: ['critter_1', 'critter_2', 'grazer', 'predator', 'flyer', 'insect'],
-  },
-  desert: {
-    floraChance: 0.04, faunaChance: 0.01,
-    flora: ['cactus', 'bush_1'],
-    fauna: ['critter_1', 'insect'],
-  },
-  ice: {
-    floraChance: 0.05, faunaChance: 0.015,
-    flora: ['crystal_plant', 'moss'],
-    fauna: ['critter_2', 'grazer'],
-  },
-  volcanic: {
-    floraChance: 0.03, faunaChance: 0.005,
-    flora: ['mushroom', 'crystal_plant'],
-    fauna: ['insect'],
-  },
-  ocean: {
-    floraChance: 0.08, faunaChance: 0.03,
-    flora: ['moss', 'vine', 'flower'],
-    fauna: ['critter_1', 'critter_2', 'flyer'],
-  },
-  rocky: {
-    floraChance: 0.04, faunaChance: 0.01,
-    flora: ['moss', 'bush_1', 'mushroom'],
-    fauna: ['critter_1', 'insect'],
-  },
-  barren_moon: {
-    floraChance: 0, faunaChance: 0,
-    flora: [], fauna: [],
-  },
-  gas_giant: {
-    floraChance: 0, faunaChance: 0,
-    flora: [], fauna: [],
-  },
-};
 
 export class PlanetSurfaceScene extends Phaser.Scene {
   private state!: GameState;
@@ -464,6 +417,7 @@ export class PlanetSurfaceScene extends Phaser.Scene {
     this.scene.start('TransitionScene', {
       type: 'takeoff',
       targetScene: 'SystemScene',
+      targetData: { fromPlanetId: this.planet.id },
       text: `LAUNCHING FROM ${this.planet.name.toUpperCase()}...`,
     });
   }

@@ -446,6 +446,236 @@ body {
 .frame-panel-content .bar-fill.cargo { background: var(--frame-bar-cargo); }
 
 /* ============================================================
+   CENTER OVERLAY (full-width UI scenes like Station)
+   ============================================================ */
+
+.frame-center-overlay {
+  position: absolute;
+  top: calc(var(--frame-padding) + var(--frame-content-inset) + var(--frame-top-height) + 4px);
+  bottom: calc(var(--frame-padding) + var(--frame-content-inset) + var(--frame-bottom-height) + 4px);
+  left: calc(var(--frame-padding) + var(--frame-content-inset) + 2px);
+  right: calc(var(--frame-padding) + var(--frame-content-inset) + 2px);
+  display: none;
+  justify-content: center;
+  align-items: flex-start;
+  z-index: 15;
+  pointer-events: auto;
+  user-select: none;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.frame-center-overlay.visible {
+  display: flex;
+}
+
+.frame-center-content {
+  width: 100%;
+  max-width: 700px;
+  padding: 16px 24px;
+  font-family: var(--frame-font-primary);
+  color: var(--frame-text-primary);
+  font-size: 12px;
+}
+
+/* --- Center overlay inner styles --- */
+.frame-center-content .station-header {
+  text-align: center;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid color-mix(in srgb, var(--frame-border-color) 30%, transparent);
+}
+
+.frame-center-content .station-name {
+  font-family: var(--frame-font-heading);
+  font-size: 18px;
+  color: var(--frame-accent-secondary);
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  text-shadow: 0 0 10px var(--frame-border-glow);
+  margin-bottom: 4px;
+}
+
+.frame-center-content .station-info {
+  font-size: 11px;
+  color: var(--frame-text-muted);
+  letter-spacing: 1px;
+}
+
+.frame-center-content .ship-summary {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  padding: 8px 0;
+  margin-bottom: 12px;
+  border-bottom: 1px solid color-mix(in srgb, var(--frame-border-color) 20%, transparent);
+  font-size: 11px;
+}
+
+.frame-center-content .ship-stat {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.frame-center-content .ship-stat .stat-label {
+  color: var(--frame-text-muted);
+  font-size: 10px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.frame-center-content .ship-stat .stat-value {
+  color: var(--frame-text-primary);
+}
+
+.frame-center-content .ship-stat .stat-value.good { color: var(--frame-good); }
+.frame-center-content .ship-stat .stat-value.warn { color: var(--frame-warn); }
+.frame-center-content .ship-stat .stat-value.bad { color: var(--frame-bad); }
+
+/* Menu items */
+.frame-center-content .menu-item {
+  padding: 10px 16px;
+  margin: 4px 0;
+  border: 1px solid transparent;
+  border-left: 3px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-size: 13px;
+}
+
+.frame-center-content .menu-item.selected {
+  background: var(--frame-border-glow);
+  border-color: color-mix(in srgb, var(--frame-border-color) 30%, transparent);
+  border-left-color: var(--frame-accent-primary);
+  color: var(--frame-accent-primary);
+}
+
+.frame-center-content .menu-item .menu-desc {
+  font-size: 10px;
+  color: var(--frame-text-muted);
+  margin-top: 2px;
+}
+
+/* Market table */
+.frame-center-content .market-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+
+.frame-center-content .market-table th {
+  text-align: left;
+  padding: 6px 8px;
+  color: var(--frame-text-muted);
+  font-size: 10px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  border-bottom: 1px solid color-mix(in srgb, var(--frame-border-color) 30%, transparent);
+}
+
+.frame-center-content .market-table th.right,
+.frame-center-content .market-table td.right {
+  text-align: right;
+}
+
+.frame-center-content .market-table tr {
+  border-bottom: 1px solid color-mix(in srgb, var(--frame-border-color) 10%, transparent);
+  cursor: pointer;
+  transition: background 0.1s ease;
+}
+
+.frame-center-content .market-table tr.selected {
+  background: var(--frame-border-glow);
+}
+
+.frame-center-content .market-table tr.selected td {
+  color: var(--frame-text-primary);
+}
+
+.frame-center-content .market-table td {
+  padding: 6px 8px;
+  color: var(--frame-text-secondary);
+}
+
+.frame-center-content .market-table td.good-name {
+  color: var(--frame-text-primary);
+}
+
+/* Section title */
+.frame-center-content .center-section-title {
+  color: var(--frame-accent-secondary);
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  margin: 12px 0 8px;
+}
+
+/* Controls hint */
+.frame-center-content .controls-hint {
+  text-align: center;
+  font-size: 10px;
+  color: var(--frame-text-muted);
+  margin-top: 12px;
+  letter-spacing: 0.5px;
+}
+
+/* Service panel (refuel/repair) */
+.frame-center-content .service-panel {
+  background: color-mix(in srgb, var(--frame-bg-primary) 80%, transparent);
+  border: 1px solid color-mix(in srgb, var(--frame-border-color) 20%, transparent);
+  padding: 16px;
+  margin: 8px 0;
+}
+
+.frame-center-content .service-panel .row {
+  display: flex;
+  justify-content: space-between;
+  line-height: 1.8;
+}
+
+.frame-center-content .service-panel .label { color: var(--frame-text-muted); }
+.frame-center-content .service-panel .value { color: var(--frame-text-primary); }
+.frame-center-content .service-panel .value.good { color: var(--frame-good); }
+.frame-center-content .service-panel .value.bad { color: var(--frame-bad); }
+
+/* Cargo list in center */
+.frame-center-content .cargo-list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px 16px;
+}
+
+.frame-center-content .cargo-list .cargo-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 3px 0;
+  font-size: 11px;
+}
+
+.frame-center-content .cargo-list .cargo-row .cargo-name {
+  color: var(--frame-text-secondary);
+}
+
+.frame-center-content .cargo-list .cargo-row .cargo-qty {
+  color: var(--frame-text-muted);
+}
+
+/* Center overlay scrollbar */
+.frame-center-overlay::-webkit-scrollbar {
+  width: 4px;
+}
+
+.frame-center-overlay::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.frame-center-overlay::-webkit-scrollbar-thumb {
+  background: var(--frame-text-muted);
+  border-radius: 2px;
+}
+
+/* ============================================================
    CANVAS AREA
    ============================================================ */
 
