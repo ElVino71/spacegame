@@ -5,6 +5,7 @@ import { StarSystemData } from '../entities/StarSystem';
 import { getJumpRange, getShieldCapacity, getCargoCapacity, getCargoUsed, getShipSpeed } from '../entities/Player';
 import { getFrameManager } from '../ui/FrameManager';
 import { getAudioManager } from '../audio/AudioManager';
+import { getChatterSystem } from '../systems/ChatterSystem';
 
 const PANEL_WIDTH = 260;
 
@@ -58,11 +59,13 @@ export class GalaxyMapScene extends Phaser.Scene {
     this.updateUI();
 
     getAudioManager().setAmbience('galaxy_map');
+    getChatterSystem().attach(this);
   }
 
   shutdown(): void {
     const frame = getFrameManager();
     frame.hidePanel();
+    getChatterSystem().stop();
     this.nameLabels.forEach(l => l.destroy());
     this.nameLabels = [];
   }

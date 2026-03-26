@@ -35,6 +35,8 @@
   --frame-content-inset: 18px;  /* visible border thickness at 3× scale */
   --frame-top-height: 36px;
   --frame-bottom-height: 32px;
+  --chatter-width: 320px;
+  --chatter-height: 60px;
 }
 
 /* --- Reset --- */
@@ -691,6 +693,60 @@ body {
 .frame-canvas-area canvas {
   display: block;
   pointer-events: auto;
+}
+
+/* ============================================================
+   CHATTER WINDOW (Bottom Right)
+   ============================================================ */
+
+.frame-chatter-window {
+  position: absolute;
+  bottom: calc(var(--frame-padding) + var(--frame-content-inset) + var(--frame-bottom-height) + 12px);
+  right: calc(var(--frame-padding) + var(--frame-content-inset) + 12px);
+  width: var(--chatter-width);
+  height: var(--chatter-height);
+  background: rgba(10, 10, 28, 0.75);
+  border-left: 2px solid var(--frame-border-color);
+  padding: 8px 12px;
+  z-index: 40;
+  pointer-events: none; /* Don't block clicks */
+  overflow: hidden;
+  display: none;
+  flex-direction: column;
+  justify-content: flex-end;
+  font-family: var(--frame-font-primary);
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--frame-text-secondary);
+  box-shadow: -10px 0 20px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(2px);
+  transition: opacity 0.5s ease;
+}
+
+.frame-chatter-window.visible {
+  display: flex;
+}
+
+.chatter-line {
+  margin-top: 2px;
+  opacity: 0.9;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.chatter-line.good { color: var(--frame-good); }
+.chatter-line.warn { color: var(--frame-warn); }
+.chatter-line.bad { color: var(--frame-bad); }
+
+/* chatter-typing cursor effect */
+.chatter-cursor::after {
+  content: '_';
+  animation: chatter-cursor-blink 0.8s step-end infinite;
+}
+
+@keyframes chatter-cursor-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
 }
 
 /* ============================================================

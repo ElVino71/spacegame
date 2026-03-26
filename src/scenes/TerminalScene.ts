@@ -5,6 +5,7 @@ import { COLORS, FACTION_NAMES } from '../utils/Constants';
 import { getCargoCapacity, getCargoUsed, getShieldCapacity, getJumpRange, getShipSpeed } from '../entities/Player';
 import { getFrameManager } from '../ui/FrameManager';
 import { getAudioManager } from '../audio/AudioManager';
+import { getChatterSystem } from '../systems/ChatterSystem';
 import { JOKES } from '../data/misc';
 
 interface TerminalLine {
@@ -37,6 +38,8 @@ export class TerminalScene extends Phaser.Scene {
     const frame = getFrameManager();
     frame.enterGameplay('Ship Terminal');
     frame.hidePanel();
+    frame.hideChatter();
+    getChatterSystem().stop();
     frame.setNav([
       { id: 'terminal', label: 'Terminal', active: true },
       { id: 'ship', label: 'Ship', shortcut: 'ESC' },

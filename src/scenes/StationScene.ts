@@ -6,6 +6,7 @@ import { getCargoCapacity, getCargoUsed } from '../entities/Player';
 import { SeededRandom } from '../utils/SeededRandom';
 import { getFrameManager } from '../ui/FrameManager';
 import { getAudioManager } from '../audio/AudioManager';
+import { getChatterSystem } from '../systems/ChatterSystem';
 import { TRADE_GOODS, TRADE_PREFIXES, ECONOMY_MODIFIERS, TradeGood } from '../data/trade';
 import { saveGame } from '../utils/SaveSystem';
 
@@ -71,10 +72,13 @@ export class StationScene extends Phaser.Scene {
     this.input.keyboard!.on('keydown-B', () => this.tryBuy());
     this.input.keyboard!.on('keydown-V', () => this.trySell());
     this.input.keyboard!.on('keydown-R', () => this.handleR());
+
+    getChatterSystem().attach(this);
   }
 
   shutdown(): void {
     getFrameManager().hideCenterOverlay();
+    getChatterSystem().stop();
   }
 
   // ─── MARKET GENERATION ──────────────────────────────────

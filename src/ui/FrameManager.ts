@@ -23,7 +23,8 @@ export class FrameManager {
   private statusCargoEl!: HTMLElement;
   private statusCreditsEl!: HTMLElement;
   private centerOverlayEl!: HTMLElement;
-  private cornerEls!: HTMLElement[];
+  private chatterWindowEl!: HTMLElement;
+  private cornerEls: HTMLElement[] = [];
   private edgeEls!: HTMLElement[];
   private initialized = false;
 
@@ -101,6 +102,9 @@ export class FrameManager {
 
       <!-- Canvas container -->
       <div class="frame-canvas-area"></div>
+
+      <!-- Chatter Window (Bottom Right) -->
+      <div class="frame-chatter-window"></div>
     `;
 
     document.body.appendChild(this.frameEl);
@@ -117,6 +121,7 @@ export class FrameManager {
     this.statusCargoEl = this.frameEl.querySelector('.cargo-fill')!;
     this.statusCreditsEl = this.frameEl.querySelector('.credits-value')!;
     this.centerOverlayEl = this.frameEl.querySelector('.frame-center-overlay')!;
+    this.chatterWindowEl = this.frameEl.querySelector('.frame-chatter-window')!;
     this.cornerEls = Array.from(this.frameEl.querySelectorAll('.frame-corner'));
     this.edgeEls = Array.from(this.frameEl.querySelectorAll('.frame-edge'));
 
@@ -338,11 +343,58 @@ export class FrameManager {
     this.frameEl.classList.remove('active');
   }
 
+  private chatterTypingQueue: { text: string; color?: string; el: HTMLElement }[] = [];
+  private isChatterTyping = false;
+
+  addChatter(text: string, color?: string): void {
+    const lineEl = document.createElement('div');
+    lineEl.className = 'chatter-line' + (color ? ` ${color}` : '');
+    this.chatterWindowEl.appendChild(lineEl);
+
+    // Keep only last 3 lines
+    while (this.chatterWindowEl.children.length > 3) {
+      this.chatterWindowEl.removeChild(this.chatterWindowEl.firstChild!);
+    }
+
+    this.chatterTypingQueue.push({ text, color, el: lineEl });
+    if (!this.isChatterTyping) {
+      this.processChatterQueue();
+    }
+  }
+
+  private async processChatterQueue(): Promise<void> {
+    if (this.chatterTypingQueue.length === 0) {
+      this.isChatterTyping = false;
+      return;
+    }
+
+    this.isChatterTyping = true;
+    const { text, el } = this.chatterTypingQueue.shift()!;
+
+    el.classList.add('chatter-cursor');
+    for (let i = 0; i <= text.length; i++) {
+      el.textContent = text.slice(0, i);
+      await new Promise(resolve => setTimeout(resolve, 30 + Math.random() * 20));
+    }
+    el.classList.remove('chatter-cursor');
+
+    // Wait a bit before next line if queue is empty
+    if (this.chatterTypingQueue.length === 0) {
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    }
+
+    this.processChatterQueue();
+  }
+
+  showChatter(): void { this.chatterWindowEl.classList.add('visible'); }
+  hideChatter(): void { this.chatterWindowEl.classList.remove('visible'); }
+
   /** Show the full frame with all bars - typical for gameplay scenes */
   enterGameplay(sceneTitle: string): void {
     this.showFrame();
     this.showTopBar();
     this.showBottomBar();
+    this.showChatter();
     this.hideCenterOverlay();
     this.setSceneTitle(sceneTitle);
   }
@@ -354,6 +406,7 @@ export class FrameManager {
     this.hideBottomBar();
     this.hidePanel();
     this.hideCenterOverlay();
+    this.hideChatter();
   }
 
   // --- Canvas area access (for Phaser parent) ---

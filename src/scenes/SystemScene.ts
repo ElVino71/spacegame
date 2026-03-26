@@ -5,6 +5,7 @@ import { StarSystemData, PlanetData, AsteroidBeltData } from '../entities/StarSy
 import { getShipSpeed, getCargoCapacity, getCargoUsed } from '../entities/Player';
 import { getFrameManager } from '../ui/FrameManager';
 import { getAudioManager } from '../audio/AudioManager';
+import { getChatterSystem } from '../systems/ChatterSystem';
 
 export class SystemScene extends Phaser.Scene {
   private state!: GameState;
@@ -182,6 +183,7 @@ export class SystemScene extends Phaser.Scene {
     this.updateBottomBar();
 
     getAudioManager().setAmbience('system_flight');
+    getChatterSystem().attach(this);
   }
 
   update(_time: number, delta: number): void {
@@ -191,6 +193,10 @@ export class SystemScene extends Phaser.Scene {
     this.drawDynamicObjects();
     this.updateNearestObject();
     this.updateUI();
+  }
+
+  shutdown(): void {
+    getChatterSystem().stop();
   }
 
   private updateBottomBar(): void {

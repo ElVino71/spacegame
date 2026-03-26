@@ -5,6 +5,7 @@ import { ModuleSlot, ModuleType } from '../entities/Ship';
 import { getCargoCapacity, getCargoUsed } from '../entities/Player';
 import { getFrameManager } from '../ui/FrameManager';
 import { getAudioManager } from '../audio/AudioManager';
+import { getChatterSystem } from '../systems/ChatterSystem';
 import { TRADE_GOODS } from '../data/trade';
 import { SeededRandom, hashString } from '../utils/SeededRandom';
 
@@ -131,10 +132,12 @@ export class ShipInteriorScene extends Phaser.Scene {
 
     // Initial panel
     this.updatePanel();
+    getChatterSystem().attach(this);
   }
 
   shutdown(): void {
     getFrameManager().hidePanel();
+    getChatterSystem().stop();
   }
 
   update(_time: number, delta: number): void {

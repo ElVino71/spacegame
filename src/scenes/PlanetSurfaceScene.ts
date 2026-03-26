@@ -6,6 +6,7 @@ import { SeededRandom } from '../utils/SeededRandom';
 import { CargoItem, getCargoCapacity, getCargoUsed } from '../entities/Player';
 import { getFrameManager } from '../ui/FrameManager';
 import { getAudioManager } from '../audio/AudioManager';
+import { getChatterSystem } from '../systems/ChatterSystem';
 import { BIOME_CONFIGS } from '../data/planets';
 
 const MAP_SIZE = 128;
@@ -103,11 +104,13 @@ export class PlanetSurfaceScene extends Phaser.Scene {
     getAudioManager().setAmbience('planet_surface');
 
     this.updatePanel();
+    getChatterSystem().attach(this);
   }
 
   shutdown(): void {
     const frame = getFrameManager();
     frame.hidePanel();
+    getChatterSystem().stop();
   }
 
   update(time: number): void {
