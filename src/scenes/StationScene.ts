@@ -7,6 +7,7 @@ import { SeededRandom } from '../utils/SeededRandom';
 import { getFrameManager } from '../ui/FrameManager';
 import { getAudioManager } from '../audio/AudioManager';
 import { TRADE_GOODS, TRADE_PREFIXES, ECONOMY_MODIFIERS, TradeGood } from '../data/trade';
+import { saveGame } from '../utils/SaveSystem';
 
 interface MarketListing {
   good: TradeGood;
@@ -41,6 +42,7 @@ export class StationScene extends Phaser.Scene {
 
     const frame = getFrameManager();
     frame.enterGameplay(`Station: ${this.station.name}`);
+    frame.setThemeFromShip(this.state.player.ship);
     frame.setNav([
       { id: 'station', label: 'Station', active: true },
       { id: 'undock', label: 'Undock', shortcut: 'ESC' },
@@ -166,6 +168,7 @@ export class StationScene extends Phaser.Scene {
       { label: 'Trade Goods', desc: 'Buy and sell commodities' },
       { label: 'Refuel Ship', desc: 'Replenish fuel reserves' },
       { label: 'Repair Hull', desc: 'Fix structural damage' },
+      { label: 'Save & Exit', desc: 'Save progress and return to title' },
       { label: 'Undock', desc: 'Return to system space' },
     ];
 
@@ -269,7 +272,7 @@ export class StationScene extends Phaser.Scene {
   // ─── NAVIGATION ─────────────────────────────────────────
 
   private navigate(dir: number): void {
-    let max = 4;
+    let max = 5;
     if (this.mode === 'market') max = this.market.length;
     if (max === 0) return;
     this.selectedIndex = (this.selectedIndex + dir + max) % max;
@@ -284,7 +287,11 @@ export class StationScene extends Phaser.Scene {
         case 0: this.mode = 'market'; this.selectedIndex = 0; break;
         case 1: this.mode = 'refuel'; break;
         case 2: this.mode = 'repair'; this.selectedIndex = 0; this.repairHull(); return;
-        case 3: this.undock(); return;
+        case 3: 
+          saveGame(this.state);
+          this.scene.start('TitleScene');
+          return;
+        case 4: this.undock(); return;
       }
     } else if (this.mode === 'market') {
       this.tryBuy();

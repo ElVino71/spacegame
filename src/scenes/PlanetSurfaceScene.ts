@@ -59,6 +59,7 @@ export class PlanetSurfaceScene extends Phaser.Scene {
     // Setup frame
     const frame = getFrameManager();
     frame.enterGameplay(`Surface: ${this.planet.name}`);
+    frame.setThemeFromShip(this.state.player.ship);
     frame.showPanel(PANEL_WIDTH);
     this.setupPanelContent();
     frame.setNav([

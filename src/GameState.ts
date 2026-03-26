@@ -67,3 +67,7 @@ export function newGame(seed?: number): GameState {
   gameState = new GameState(seed);
   return gameState;
 }
+
+export function setGameState(state: GameState): void {
+  gameState = state;
+}

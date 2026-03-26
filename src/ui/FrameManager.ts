@@ -1,4 +1,4 @@
-import { ThemeId, ThemeDefinition, THEMES, SHIP_THEME_MAP } from './themes';
+import { ThemeId, ThemeDefinition, THEMES } from './themes';
 
 export interface FrameNavItem {
   id: string;
@@ -196,9 +196,8 @@ export class FrameManager {
     return this.currentTheme;
   }
 
-  setThemeFromShip(shipClass: string): void {
-    const themeId = SHIP_THEME_MAP[shipClass] || 'retro-scifi';
-    this.applyTheme(themeId);
+  setThemeFromShip(ship: { theme: ThemeId }): void {
+    this.applyTheme(ship.theme);
   }
 
   cycleTheme(): ThemeId {

@@ -97,6 +97,7 @@ export class SystemScene extends Phaser.Scene {
     // Setup frame
     const frame = getFrameManager();
     frame.enterGameplay(`System: ${this.system.name}`);
+    frame.setThemeFromShip(this.state.player.ship);
     frame.setNav([
       { id: 'system', label: 'System', active: true },
       { id: 'map', label: 'Galaxy Map', shortcut: 'M' },
@@ -134,7 +135,7 @@ export class SystemScene extends Phaser.Scene {
 
     // Ship sprite
     this.shipSprite = this.add.image(this.shipX, this.shipY, 'ship_player')
-      .setDepth(5).setScale(1);
+      .setDepth(5).setScale(0.6);
 
     // Generate asteroid positions
     this.generateAsteroids();

@@ -7,6 +7,7 @@ import type { ShipModule, ShipData, ShipClass } from '../entities/Ship';
 export const SHIP_TEMPLATES: Record<ShipClass, Omit<ShipData, 'x' | 'y' | 'angle' | 'vx' | 'vy' | 'name'>> = {
   scout: {
     class: 'scout',
+    theme: 'retro-scifi',
     hull: { current: 80, max: 80 },
     fuel: { current: 100, max: 100 },
     slots: [
@@ -20,6 +21,7 @@ export const SHIP_TEMPLATES: Record<ShipClass, Omit<ShipData, 'x' | 'y' | 'angle
   },
   freighter: {
     class: 'freighter',
+    theme: 'steampunk',
     hull: { current: 120, max: 120 },
     fuel: { current: 150, max: 150 },
     slots: [
@@ -35,6 +37,7 @@ export const SHIP_TEMPLATES: Record<ShipClass, Omit<ShipData, 'x' | 'y' | 'angle
   },
   corvette: {
     class: 'corvette',
+    theme: 'military',
     hull: { current: 100, max: 100 },
     fuel: { current: 120, max: 120 },
     slots: [
@@ -49,6 +52,7 @@ export const SHIP_TEMPLATES: Record<ShipClass, Omit<ShipData, 'x' | 'y' | 'angle
   },
   gunship: {
     class: 'gunship',
+    theme: 'military',
     hull: { current: 150, max: 150 },
     fuel: { current: 100, max: 100 },
     slots: [
@@ -65,6 +69,7 @@ export const SHIP_TEMPLATES: Record<ShipClass, Omit<ShipData, 'x' | 'y' | 'angle
   },
   explorer: {
     class: 'explorer',
+    theme: 'alien',
     hull: { current: 90, max: 90 },
     fuel: { current: 180, max: 180 },
     slots: [

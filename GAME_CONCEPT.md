@@ -7,6 +7,13 @@ A 2D space exploration, trading, and combat game inspired by Starflight 2. The p
 
 ## Game Screens & Views
 
+### 0. Title Screen — IMPLEMENTED
+- Splash page with hyperspace background effect
+- Game logo ("STARWARD DRIFT")
+- "Start New Game" button (resets state and enters galaxy)
+- "Continue Game" button (loads progress from localStorage)
+- In keeping with the game's retro-scifi aesthetic
+
 ### 1. Galaxy Map (Top-Down) — IMPLEMENTED
 - Zoomed-out view of star systems as nodes with faction-colored rings
 - Fixed HTML side panel showing ship status, current location, and selected target info

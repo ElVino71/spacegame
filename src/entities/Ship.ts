@@ -1,3 +1,5 @@
+import { ThemeId } from '../ui/themes';
+
 export interface ShipModule {
   id: string;
   type: ModuleType;
@@ -19,6 +21,7 @@ export type ShipClass = 'scout' | 'freighter' | 'corvette' | 'gunship' | 'explor
 
 export interface ShipData {
   class: ShipClass;
+  theme: ThemeId;
   name: string;
   slots: ModuleSlot[];
   hull: { current: number; max: number };

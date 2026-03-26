@@ -228,12 +228,3 @@ export const THEMES: Record<ThemeId, ThemeDefinition> = {
     edgeDecor: 'crystals',
   },
 };
-
-// Map ship classes to default themes
-export const SHIP_THEME_MAP: Record<string, ThemeId> = {
-  scout: 'retro-scifi',
-  freighter: 'steampunk',
-  corvette: 'military',
-  gunship: 'military',
-  explorer: 'alien',
-};

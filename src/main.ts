@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { BootScene } from './scenes/BootScene';
+import { TitleScene } from './scenes/TitleScene';
 import { GalaxyMapScene } from './scenes/GalaxyMapScene';
 import { SystemScene } from './scenes/SystemScene';
 import { ShipInteriorScene } from './scenes/ShipInteriorScene';
@@ -31,6 +32,7 @@ const config: Phaser.Types.Core.GameConfig = {
   },
   scene: [
     BootScene,
+    TitleScene,
     GalaxyMapScene,
     SystemScene,
     ShipInteriorScene,

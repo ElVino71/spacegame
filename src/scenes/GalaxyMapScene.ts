@@ -12,6 +12,7 @@ export class GalaxyMapScene extends Phaser.Scene {
   private state!: GameState;
   private starGraphics!: Phaser.GameObjects.Graphics;
   private connectionGraphics!: Phaser.GameObjects.Graphics;
+  private nameLabels: Phaser.GameObjects.Text[] = [];
   private selectedSystem: StarSystemData | null = null;
   private hoveredSystem: StarSystemData | null = null;
   private isDragging = false;
@@ -28,7 +29,7 @@ export class GalaxyMapScene extends Phaser.Scene {
     // Setup frame
     const frame = getFrameManager();
     frame.enterGameplay('Galaxy Map');
-    frame.setThemeFromShip(this.state.player.ship.class);
+    frame.setThemeFromShip(this.state.player.ship);
     frame.showPanel(PANEL_WIDTH);
     this.setupPanelContent();
     this.setupNav();
@@ -62,10 +63,20 @@ export class GalaxyMapScene extends Phaser.Scene {
   shutdown(): void {
     const frame = getFrameManager();
     frame.hidePanel();
+    this.nameLabels.forEach(l => l.destroy());
+    this.nameLabels = [];
   }
 
   update(): void {
     this.updateHover();
+    
+    // Fade out labels when zoomed out, or hide them
+    const zoom = this.cameras.main.zoom;
+    const alpha = Phaser.Math.Clamp((zoom - 0.4) * 2, 0, 1);
+    this.nameLabels.forEach(label => {
+      label.setAlpha(alpha);
+      label.setVisible(alpha > 0);
+    });
   }
 
   // ─── FRAME SETUP ──────────────────────────────────────
@@ -124,6 +135,10 @@ export class GalaxyMapScene extends Phaser.Scene {
   private drawGalaxy(): void {
     this.connectionGraphics.clear();
     this.starGraphics.clear();
+    
+    // Clear old labels
+    this.nameLabels.forEach(l => l.destroy());
+    this.nameLabels = [];
 
     const currentSystem = this.state.getCurrentSystem();
     const jumpRange = getJumpRange(this.state.player.ship);
@@ -153,6 +168,25 @@ export class GalaxyMapScene extends Phaser.Scene {
     for (const system of this.state.galaxy) {
       if (!system.discovered) continue;
       this.drawStar(system, system.id === currentSystem.id);
+      
+      // Add name label
+      const isCurrent = system.id === currentSystem.id;
+      const label = this.add.text(system.x, system.y + (isCurrent ? 18 : 15), system.name, {
+        fontSize: '11px',
+        fontFamily: 'monospace',
+        color: '#ffffff',
+        stroke: '#000000',
+        strokeThickness: 3,
+        shadow: {
+          offsetX: 1,
+          offsetY: 1,
+          color: '#000000',
+          blur: 2,
+          stroke: true,
+          fill: true
+        }
+      }).setOrigin(0.5, 0).setAlpha(0.85);
+      this.nameLabels.push(label);
     }
   }
 

@@ -6,6 +6,7 @@ import { getCargoCapacity, getCargoUsed } from '../entities/Player';
 import { getFrameManager } from '../ui/FrameManager';
 import { getAudioManager } from '../audio/AudioManager';
 import { TRADE_GOODS } from '../data/trade';
+import { SeededRandom, hashString } from '../utils/SeededRandom';
 
 const PANEL_WIDTH = 340;
 const TILE_SIZE = 32;
@@ -148,14 +149,7 @@ export class ShipInteriorScene extends Phaser.Scene {
   // ─── LAYOUT ─────────────────────────────────────────────
 
   private getShipTheme(): string {
-    const THEME_MAP: Record<string, string> = {
-      scout: 'retro-scifi',
-      freighter: 'steampunk',
-      corvette: 'military',
-      gunship: 'military',
-      explorer: 'alien',
-    };
-    return THEME_MAP[this.state.player.ship.class] || 'retro-scifi';
+    return this.state.player.ship.theme;
   }
 
   private buildRooms(): void {
@@ -228,10 +222,37 @@ export class ShipInteriorScene extends Phaser.Scene {
     }
   }
 
+  /** Pick a tile key for a given room position using seeded RNG */
+  private pickTileKey(rng: SeededRandom, baseKey: string, isWallTile: boolean): string {
+    const roll = rng.next();
+
+    if (isWallTile) {
+      // Wall tiles: 15% chance of a decoration tile (porthole, pipes, panel, vent)
+      if (roll < 0.15) {
+        const decoTypes = ['deco_porthole', 'deco_pipes', 'deco_panel', 'deco_vent'];
+        const decoIdx = Math.floor(rng.next() * decoTypes.length);
+        const decoKey = `room_${this.themeId}_${decoTypes[decoIdx]}`;
+        if (this.textures.exists(decoKey)) return decoKey;
+      }
+    }
+
+    // 40% chance of a variant (v1/v2/v3), 60% base tile
+    if (roll < 0.60) {
+      return baseKey;
+    }
+    const variantIdx = 1 + Math.floor(rng.next() * 3); // 1, 2, or 3
+    const variantKey = `${baseKey}_v${variantIdx}`;
+    return this.textures.exists(variantKey) ? variantKey : baseKey;
+  }
+
   private drawWithTiles(): void {
     const stamp = this.make.image({ x: 0, y: 0, key: `room_${this.themeId}_floor` }, false);
     stamp.setOrigin(0, 0);
     stamp.setScale(TILE_SCALE);
+
+    // Create seeded RNG from galaxy seed + ship name for deterministic tile selection
+    const shipSeed = this.state.seed ^ hashString(this.state.player.ship.name);
+    const tileRng = new SeededRandom(shipSeed);
 
     for (const room of this.rooms) {
       const bgKey = `room_${this.themeId}_bg_${room.type}`;
@@ -244,11 +265,13 @@ export class ShipInteriorScene extends Phaser.Scene {
           const wy = room.y + ty * SCALED_TILE;
 
           if (ty === FLOOR_Y_TILE) {
-            // Floor row
+            // Floor row — always use base floor tile
             stamp.setTexture(floorKey);
           } else if (this.textures.exists(bgKey)) {
-            // Background tile for this room type
-            stamp.setTexture(bgKey);
+            // Pick room bg tile or variant/deco using seeded RNG
+            const isWallTile = ty === 0 || ty === FLOOR_Y_TILE - 1;
+            const tileKey = this.pickTileKey(tileRng, bgKey, isWallTile);
+            stamp.setTexture(tileKey);
           } else {
             stamp.setTexture(wallKey);
           }
@@ -264,9 +287,14 @@ export class ShipInteriorScene extends Phaser.Scene {
       if (nextRoom) {
         const corrX = room.x + room.widthPx;
         for (let ct = 0; ct < CORRIDOR_WIDTH_TILES; ct++) {
-          // Only draw floor-level corridor tiles
           const wx = corrX + ct * SCALED_TILE;
-          stamp.setTexture(this.textures.exists(corridorKey) ? corridorKey : floorKey);
+          if (this.textures.exists(corridorKey)) {
+            // Pick corridor variant
+            const tileKey = this.pickTileKey(tileRng, corridorKey, false);
+            stamp.setTexture(tileKey);
+          } else {
+            stamp.setTexture(floorKey);
+          }
           stamp.setPosition(wx, room.y + FLOOR_Y_TILE * SCALED_TILE);
           this.roomRT.draw(stamp);
         }

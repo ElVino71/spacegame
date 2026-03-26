@@ -67,8 +67,20 @@ export class BootScene extends Phaser.Scene {
       'bg_bridge', 'bg_engine', 'bg_weapons', 'bg_shields', 'bg_cargo',
       'bg_sensors', 'bg_computer', 'bg_mining', 'bg_life_support', 'bg_hull',
     ];
+    // Variant tiles (3 per room bg type + corridor)
+    const roomBgTypes = [
+      'bg_bridge', 'bg_engine', 'bg_weapons', 'bg_shields', 'bg_cargo',
+      'bg_sensors', 'bg_computer', 'bg_mining', 'bg_life_support', 'bg_hull',
+      'corridor',
+    ];
+    const variantNames = roomBgTypes.flatMap(bg =>
+      [1, 2, 3].map(v => `${bg}_v${v}`)
+    );
+    // Generic decoration tiles
+    const decoNames = ['deco_porthole', 'deco_pipes', 'deco_panel', 'deco_vent'];
+    const allRoomTiles = [...roomTileNames, ...variantNames, ...decoNames];
     for (const theme of themes) {
-      for (const name of roomTileNames) {
+      for (const name of allRoomTiles) {
         this.load.image(`room_${theme}_${name}`, `assets/tiles/rooms/${theme}/${name}.png`);
       }
     }
@@ -84,7 +96,7 @@ export class BootScene extends Phaser.Scene {
     document.addEventListener('click', initAudio);
     document.addEventListener('keydown', initAudio);
 
-    this.scene.start('GalaxyMapScene');
+    this.scene.start('TitleScene');
   }
 
   private createPlaceholderTextures(): void {

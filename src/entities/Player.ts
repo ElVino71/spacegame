@@ -34,6 +34,7 @@ export function createNewPlayer(): PlayerData {
 
   const ship: ShipData = {
     ...template,
+    theme: template.theme,
     name: STARTER_SHIP_NAME,
     slots,
     hull: { ...template.hull },

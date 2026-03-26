@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { getGameState, GameState } from '../GameState';
+import { saveGame } from '../utils/SaveSystem';
 import { COLORS, FACTION_NAMES } from '../utils/Constants';
 import { getCargoCapacity, getCargoUsed, getShieldCapacity, getJumpRange, getShipSpeed } from '../entities/Player';
 import { getFrameManager } from '../ui/FrameManager';
@@ -227,6 +228,15 @@ export class TerminalScene extends Phaser.Scene {
       case 'sound':
         this.cmdAudio(args);
         break;
+      case 'save':
+        saveGame(this.state);
+        this.printLine('GAME SAVED.', '#00ff88');
+        break;
+      case 'quit':
+        saveGame(this.state);
+        this.printLine('GAME SAVED. RETURNING TO TITLE...', '#ffff00');
+        setTimeout(() => this.scene.start('TitleScene'), 1000);
+        break;
       case 'clear':
       case 'cls':
         this.lines = [];
@@ -240,7 +250,6 @@ export class TerminalScene extends Phaser.Scene {
         this.updateOutput();
         break;
       case 'exit':
-      case 'quit':
         this.scene.start('ShipInteriorScene');
         break;
       case 'hello':
@@ -268,20 +277,27 @@ export class TerminalScene extends Phaser.Scene {
     this.printLine('  codex    - Lore database (codex list / codex <id>)');
     this.printLine('  theme    - Cycle cockpit theme (theme next / theme <name>)');
     this.printLine('  audio    - Audio controls (audio mute / audio vol <0-100>)');
+    this.printLine('  save     - Save game state');
+    this.printLine('  quit     - Save game and exit to title');
     this.printLine('  clear    - Clear terminal');
     this.printLine('  exit     - Exit terminal');
   }
 
   private cmdTheme(args: string[]): void {
     const frame = getFrameManager();
+    const ship = this.state.player.ship;
+
     if (!args[0] || args[0] === 'next') {
       const newTheme = frame.cycleTheme();
+      ship.theme = newTheme;
       this.printLine(`Cockpit theme changed to: ${newTheme}`, '#ffcc00');
     } else {
       const validThemes = ['retro-scifi', 'biological', 'steampunk', 'military', 'alien'];
       if (validThemes.includes(args[0])) {
-        frame.applyTheme(args[0] as any);
-        this.printLine(`Cockpit theme set to: ${args[0]}`, '#ffcc00');
+        const selectedTheme = args[0] as any;
+        frame.applyTheme(selectedTheme);
+        ship.theme = selectedTheme;
+        this.printLine(`Cockpit theme set to: ${selectedTheme}`, '#ffcc00');
       } else {
         this.printLine(`Unknown theme: "${args[0]}"`, '#ff6644');
         this.printLine(`Available: ${validThemes.join(', ')}`);
