@@ -15,7 +15,8 @@ type SfxName =
   | 'rover_move'
   | 'mine'
   | 'terminal_key' | 'terminal_execute' | 'terminal_error'
-  | 'trade_buy' | 'trade_sell' | 'refuel' | 'repair';
+  | 'trade_buy' | 'trade_sell' | 'refuel' | 'repair'
+  | 'combat_hit' | 'combat_victory' | 'combat_flee';
 
 type AmbienceName =
   | 'galaxy_map' | 'system_flight' | 'planet_surface'
@@ -140,6 +141,9 @@ export class AudioManager {
         case 'trade_sell':    this.synthTrade(ctx, false); break;
         case 'refuel':        this.synthRefuel(ctx); break;
         case 'repair':        this.synthRepair(ctx); break;
+        case 'combat_hit':    this.synthCombatHit(ctx); break;
+        case 'combat_victory': this.synthCombatVictory(ctx); break;
+        case 'combat_flee':   this.synthCombatFlee(ctx); break;
       }
     } catch {
       // Audio errors must never crash game scenes
@@ -544,6 +548,73 @@ export class AudioManager {
       osc.start(t + i * 0.07);
       osc.stop(t + i * 0.07 + 0.05);
     }
+  }
+
+  private synthCombatHit(ctx: AudioContext): void {
+    const t = ctx.currentTime;
+    // Impact noise burst + low thud
+    const bufSize = ctx.sampleRate * 0.15;
+    const buf = ctx.createBuffer(1, bufSize, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < bufSize; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / bufSize);
+    const noise = ctx.createBufferSource();
+    noise.buffer = buf;
+    const nGain = ctx.createGain();
+    nGain.gain.setValueAtTime(0.15, t);
+    nGain.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.value = 1200;
+    noise.connect(filter).connect(nGain).connect(this.sfxGain!);
+    noise.start(t);
+    // Low thud
+    const osc = ctx.createOscillator();
+    const oGain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(80, t);
+    osc.frequency.exponentialRampToValueAtTime(30, t + 0.2);
+    oGain.gain.setValueAtTime(0.2, t);
+    oGain.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
+    osc.connect(oGain).connect(this.sfxGain!);
+    osc.start(t);
+    osc.stop(t + 0.25);
+  }
+
+  private synthCombatVictory(ctx: AudioContext): void {
+    const t = ctx.currentTime;
+    // Ascending triumphant tones
+    const notes = [440, 554, 659, 880];
+    for (let i = 0; i < notes.length; i++) {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.value = notes[i];
+      const start = t + i * 0.1;
+      gain.gain.setValueAtTime(0.1, start);
+      gain.gain.exponentialRampToValueAtTime(0.001, start + 0.2);
+      osc.connect(gain).connect(this.sfxGain!);
+      osc.start(start);
+      osc.stop(start + 0.2);
+    }
+  }
+
+  private synthCombatFlee(ctx: AudioContext): void {
+    const t = ctx.currentTime;
+    // Descending whoosh
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(600, t);
+    osc.frequency.exponentialRampToValueAtTime(100, t + 0.3);
+    gain.gain.setValueAtTime(0.08, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(2000, t);
+    filter.frequency.exponentialRampToValueAtTime(200, t + 0.3);
+    osc.connect(filter).connect(gain).connect(this.sfxGain!);
+    osc.start(t);
+    osc.stop(t + 0.35);
   }
 
   // ─── AMBIENCE GENERATORS ──────────────────────────────

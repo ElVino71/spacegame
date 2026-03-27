@@ -84,6 +84,7 @@ export class RuinsScene extends Phaser.Scene {
   private discoveredLore: LoreFragment[] = [];
   private encounterActive = false;
   private currentEncounter: EncounterType | null = null;
+  private suitIntegrity = { current: 100, max: 100 };
 
   // Input
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
@@ -104,10 +105,12 @@ export class RuinsScene extends Phaser.Scene {
     this.discoveredLore = [];
     this.encounterActive = false;
     this.currentEncounter = null;
+    this.suitIntegrity = { current: 100, max: 100 };
 
     // Setup frame
     const frame = getFrameManager();
     frame.enterGameplay(`Ruins: ${this.planet.name}`);
+    frame.setHullLabel('SUIT');
     frame.setThemeFromShip(this.state.player.ship);
     frame.showPanel(PANEL_WIDTH);
     this.setupPanelContent();
@@ -144,20 +147,16 @@ export class RuinsScene extends Phaser.Scene {
     };
 
     this.input.keyboard!.on('keydown-ESC', () => {
-      if (getFrameManager().isModalVisible()) {
+      if (getFrameManager().isModalVisible() && !this.encounterActive) {
         getFrameManager().hideModal();
-      } else if (this.encounterActive) {
-        this.resolveEncounter('flee');
-      } else {
+      } else if (!this.encounterActive) {
         this.exitRuins();
       }
     });
     this.input.keyboard!.on('keydown-SPACE', () => {
-      if (getFrameManager().isModalVisible()) {
+      if (getFrameManager().isModalVisible() && !this.encounterActive) {
         getFrameManager().hideModal();
-      } else if (this.encounterActive) {
-        this.resolveEncounter('fight');
-      } else {
+      } else if (!this.encounterActive) {
         this.interact();
       }
     });
@@ -189,7 +188,6 @@ export class RuinsScene extends Phaser.Scene {
       <div class="section" id="panel-ruin"></div>
       <div class="section" id="panel-status"></div>
       <div class="section" id="panel-loot"></div>
-      <div class="section" id="panel-encounter"></div>
       <div class="section" id="panel-tile"></div>
       <div style="flex:1"></div>
       <div class="section controls" id="panel-controls"></div>
@@ -197,8 +195,8 @@ export class RuinsScene extends Phaser.Scene {
 
     document.getElementById('panel-controls')!.innerHTML =
       `<span>WASD/Arrows</span> Move<br>` +
-      `<span>SPACE</span> Interact/Fight<br>` +
-      `<span>ESC</span> Flee/Exit`;
+      `<span>SPACE</span> Interact<br>` +
+      `<span>ESC</span> Exit`;
   }
 
   private row(label: string, value: string, cls = ''): string {
@@ -211,7 +209,8 @@ export class RuinsScene extends Phaser.Scene {
     const cargoMax = getCargoCapacity(ship);
 
     const frame = getFrameManager();
-    frame.updateStatus(ship.hull, ship.fuel, cargoUsed, cargoMax, this.state.player.credits);
+    // Show suit integrity in the bottom bar HULL slot
+    frame.updateStatus(this.suitIntegrity, ship.fuel, cargoUsed, cargoMax, this.state.player.credits);
 
     // Ruin info
     const panelRuin = document.getElementById('panel-ruin');
@@ -226,11 +225,11 @@ export class RuinsScene extends Phaser.Scene {
     // Player status
     const panelStatus = document.getElementById('panel-status');
     if (panelStatus) {
-      const hullPct = Math.floor((ship.hull.current / ship.hull.max) * 100);
-      const hullCls = hullPct > 50 ? 'good' : hullPct > 25 ? 'warn' : 'bad';
+      const suitPct = Math.floor((this.suitIntegrity.current / this.suitIntegrity.max) * 100);
+      const suitCls = suitPct > 50 ? 'good' : suitPct > 25 ? 'warn' : 'bad';
       panelStatus.innerHTML =
         `<div class="section-title">Suit Status</div>` +
-        this.row('Hull', `${Math.floor(ship.hull.current)}/${ship.hull.max}`, hullCls) +
+        this.row('Integrity', `${this.suitIntegrity.current}/${this.suitIntegrity.max}`, suitCls) +
         this.row('Position', `${this.playerX}, ${this.playerY}`);
     }
 
@@ -289,23 +288,6 @@ export class RuinsScene extends Phaser.Scene {
       }
     }
 
-    // Encounter panel
-    const panelEncounter = document.getElementById('panel-encounter');
-    if (panelEncounter) {
-      if (this.encounterActive && this.currentEncounter) {
-        const enc = this.currentEncounter;
-        panelEncounter.innerHTML =
-          `<div class="section-title bad">ENCOUNTER!</div>` +
-          `<div class="row"><span class="label">${enc.name}</span></div>` +
-          `<div class="label">${enc.description}</div>` +
-          `<div class="row" style="margin-top:8px"><span class="action">SPACE</span> <span class="label">Fight (${enc.damage} dmg risk)</span></div>` +
-          `<div class="row"><span class="action">ESC</span> <span class="label">Flee</span></div>`;
-        panelEncounter.style.display = '';
-      } else {
-        panelEncounter.innerHTML = '';
-        panelEncounter.style.display = 'none';
-      }
-    }
   }
 
   // ─── MOVEMENT ─────────────────────────────────────────
@@ -501,9 +483,8 @@ export class RuinsScene extends Phaser.Scene {
     tile.trapTriggered = true;
     const trap = tile.trapType!;
 
-    // Apply damage
-    this.state.player.ship.hull.current = Math.max(0,
-      this.state.player.ship.hull.current - trap.damage);
+    // Apply damage to suit integrity
+    this.suitIntegrity.current = Math.max(0, this.suitIntegrity.current - trap.damage);
 
     getAudioManager().playSfx('ui_deny');
     getFrameManager().showAlert(trap.triggerText, 'danger');
@@ -511,10 +492,10 @@ export class RuinsScene extends Phaser.Scene {
     this.redrawTile(this.playerX, this.playerY);
     this.updatePanel();
 
-    // Check for death
-    if (this.state.player.ship.hull.current <= 0) {
+    // Check for suit failure
+    if (this.suitIntegrity.current <= 0) {
       getFrameManager().showAlert('Your suit integrity has failed! Emergency teleport activated.', 'danger');
-      this.state.player.ship.hull.current = 1;
+      this.suitIntegrity.current = 1;
       this.time.delayedCall(2000, () => this.exitRuins());
     }
   }
@@ -524,48 +505,104 @@ export class RuinsScene extends Phaser.Scene {
   private triggerEncounter(tile: RuinTile): void {
     this.encounterActive = true;
     this.currentEncounter = tile.encounterType!;
+    const enc = tile.encounterType!;
 
     getAudioManager().playSfx('ui_deny');
-    getFrameManager().showAlert(`${tile.encounterType!.name} appears!`, 'danger');
+
+    const frame = getFrameManager();
+    const dmgCls = enc.damage >= 15 ? 'bad' : '';
+    frame.showModalHtml(`${enc.name}`, `
+      <div class="encounter-desc">${enc.description}</div>
+      <div class="encounter-stats">
+        <div class="stat">Threat: <span class="stat-val ${dmgCls}">${enc.damage} damage</span></div>
+        ${enc.reward ? `<div class="stat">Reward: <span class="stat-val">${enc.reward.value} CR</span></div>` : ''}
+      </div>
+      <div class="encounter-buttons">
+        <button class="encounter-btn fight" id="enc-fight">Fight</button>
+        <button class="encounter-btn flee" id="enc-flee">Flee</button>
+      </div>
+    `);
+
+    // Bind button clicks
+    document.getElementById('enc-fight')!.addEventListener('click', () => this.resolveEncounter('fight'));
+    document.getElementById('enc-flee')!.addEventListener('click', () => this.resolveEncounter('flee'));
+
     this.updatePanel();
   }
 
   private resolveEncounter(action: 'fight' | 'flee'): void {
     if (!this.currentEncounter) return;
     const tile = this.tiles[this.playerY][this.playerX];
+    const enc = this.currentEncounter;
+    const frame = getFrameManager();
 
     if (action === 'fight') {
-      // Take damage
-      this.state.player.ship.hull.current = Math.max(0,
-        this.state.player.ship.hull.current - this.currentEncounter.damage);
+      // Take damage to suit integrity
+      const dmg = enc.damage;
+      this.suitIntegrity.current = Math.max(0, this.suitIntegrity.current - dmg);
 
-      getFrameManager().showAlert(this.currentEncounter.fightText, 'warn');
-
-      // Reward
-      if (this.currentEncounter.reward) {
-        if (this.currentEncounter.reward.type === 'credits') {
-          this.state.player.credits += this.currentEncounter.reward.value;
-          getFrameManager().showAlert(`+${this.currentEncounter.reward.value} CR`, 'info');
-        }
-      }
+      getAudioManager().playSfx('combat_hit');
 
       tile.encounterCleared = true;
       this.redrawTile(this.playerX, this.playerY);
 
-      // Check for death
-      if (this.state.player.ship.hull.current <= 0) {
-        getFrameManager().showAlert('Your suit integrity has failed! Emergency teleport activated.', 'danger');
-        this.state.player.ship.hull.current = 1;
-        this.time.delayedCall(2000, () => this.exitRuins());
+      // Build narrative
+      let rewardText = '';
+      if (enc.reward && enc.reward.type === 'credits') {
+        this.state.player.credits += enc.reward.value;
+        rewardText = `<div class="encounter-outcome win">+${enc.reward.value} CR recovered from the wreckage.</div>`;
       }
-    } else {
-      // Flee — move player back to previous safe tile
-      getFrameManager().showAlert(this.currentEncounter.fleeText, 'warn');
-    }
 
-    this.encounterActive = false;
-    this.currentEncounter = null;
-    this.updatePanel();
+      const suitFailed = this.suitIntegrity.current <= 0;
+      if (suitFailed) {
+        this.suitIntegrity.current = 1;
+      }
+
+      const dmgText = dmg > 0
+        ? `<div class="encounter-outcome loss">Suit integrity: -${dmg} (${this.suitIntegrity.current}/${this.suitIntegrity.max} remaining)</div>`
+        : '';
+
+      // Show outcome with victory sound after a beat
+      this.time.delayedCall(300, () => {
+        getAudioManager().playSfx('combat_victory');
+        frame.showModalHtml('Victory', `
+          <div class="encounter-narrative">${enc.fightText}</div>
+          ${dmgText}
+          ${rewardText}
+          ${suitFailed ? '<div class="encounter-outcome loss">CRITICAL: Suit integrity failed! Emergency teleport activated.</div>' : ''}
+          <div class="encounter-buttons">
+            <button class="encounter-btn dismiss" id="enc-dismiss">Continue</button>
+          </div>
+        `);
+
+        document.getElementById('enc-dismiss')!.addEventListener('click', () => {
+          frame.hideModal();
+          this.encounterActive = false;
+          this.currentEncounter = null;
+          this.updatePanel();
+          if (suitFailed) {
+            this.time.delayedCall(500, () => this.exitRuins());
+          }
+        });
+      });
+    } else {
+      getAudioManager().playSfx('combat_flee');
+
+      frame.showModalHtml('Fled', `
+        <div class="encounter-narrative">${enc.fleeText}</div>
+        <div class="encounter-outcome fled">You escaped without injury.</div>
+        <div class="encounter-buttons">
+          <button class="encounter-btn dismiss" id="enc-dismiss">Continue</button>
+        </div>
+      `);
+
+      document.getElementById('enc-dismiss')!.addEventListener('click', () => {
+        frame.hideModal();
+        this.encounterActive = false;
+        this.currentEncounter = null;
+        this.updatePanel();
+      });
+    }
   }
 
   // ─── EXIT ─────────────────────────────────────────────

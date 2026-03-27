@@ -3,12 +3,15 @@ import { getGameState, GameState } from '../GameState';
 import { GAME_WIDTH, GAME_HEIGHT } from '../utils/Constants';
 import { PlanetData } from '../entities/StarSystem';
 import { SeededRandom } from '../utils/SeededRandom';
-import { getCargoCapacity, getCargoUsed } from '../entities/Player';
+import { getCargoCapacity, getCargoUsed, getCrewCapacity } from '../entities/Player';
 import { getFrameManager } from '../ui/FrameManager';
 import { getAudioManager } from '../audio/AudioManager';
 import { getChatterSystem } from '../systems/ChatterSystem';
 import { TRADE_GOODS, TRADE_PREFIXES, TradeGood } from '../data/trade';
-import { SHOP_TEMPLATES, MODULE_CATALOG, ModuleForSale, ShopDef } from '../data/settlements';
+import { SHOP_TEMPLATES, BAR_TEMPLATES, MODULE_CATALOG, ModuleForSale, ShopDef } from '../data/settlements';
+import { CharacterGenerator } from '../generation/CharacterGenerator';
+import { CrewMember } from '../entities/Character';
+import { PortraitRenderer } from '../ui/PortraitRenderer';
 
 // ─── Constants ──────────────────────────────────────────
 
@@ -22,7 +25,7 @@ const MOVE_DELAY = 150;
 type SettlementTileType =
   | 'road' | 'road_cross' | 'plaza'
   | 'building_wall' | 'building_floor' | 'building_door'
-  | 'shop_trade' | 'shop_modules'
+  | 'shop_trade' | 'shop_modules' | 'shop_bar'
   | 'fence' | 'lamp' | 'void';
 
 interface SettlementTile {
@@ -55,9 +58,10 @@ export class SettlementScene extends Phaser.Scene {
   // Shop state
   private shopActive = false;
   private activeShop: ShopDef | null = null;
-  private shopMode: 'menu' | 'trade' | 'modules' = 'menu';
+  private shopMode: 'menu' | 'trade' | 'modules' | 'bar' = 'menu';
   private market: MarketListing[] = [];
   private moduleStock: ModuleForSale[] = [];
+  private hirelings: CrewMember[] = [];
   private selectedIndex = 0;
 
   // Input
@@ -246,6 +250,7 @@ export class SettlementScene extends Phaser.Scene {
       case 'building_door':  return 'settlement_building_door';
       case 'shop_trade':     return 'settlement_shop_trade';
       case 'shop_modules':   return 'settlement_shop_modules';
+      case 'shop_bar':        return 'settlement_shop_bar';
       case 'fence':          return 'settlement_fence';
       case 'lamp':           return 'settlement_lamp';
       default:               return 'settlement_road';
@@ -294,9 +299,12 @@ export class SettlementScene extends Phaser.Scene {
     if (shop.type === 'trade') {
       this.shopMode = 'trade';
       this.generateShopMarket();
-    } else {
+    } else if (shop.type === 'modules') {
       this.shopMode = 'modules';
       this.generateModuleStock();
+    } else {
+      this.shopMode = 'bar';
+      this.generateHirelings();
     }
 
     const frame = getFrameManager();
@@ -357,6 +365,105 @@ export class SettlementScene extends Phaser.Scene {
     }));
   }
 
+  private generateHirelings(): void {
+    const seed = this.state.seed * 7000 + this.planet.id * 631;
+    const rng = new SeededRandom(seed);
+    this.hirelings = [];
+    const count = rng.int(2, 4);
+    for (let i = 0; i < count; i++) {
+      this.hirelings.push(CharacterGenerator.generateCrewMember(rng.fork(i), 0));
+    }
+    // Remove any already-hired crew
+    const crewIds = new Set((this.state.player.crew || []).map(c => c.id));
+    this.hirelings = this.hirelings.filter(h => !crewIds.has(h.id));
+  }
+
+  private renderBar(): string {
+    const shop = this.activeShop!;
+    let html = `<div class="center-section-title">${shop.name}</div>`;
+    html += `<div class="center-section-subtitle">${shop.desc}</div>`;
+
+    if (this.hirelings.length === 0) {
+      html += `<div class="service-panel"><div class="row">No candidates available at this time.</div></div>`;
+    } else {
+      const capacity = getCrewCapacity(this.state.player.ship);
+      const currentCrew = (this.state.player.crew || []).length;
+      html += `<div style="margin-bottom:10px; font-size:12px;">Ship Crew Capacity: ${currentCrew} / ${capacity}</div>`;
+
+      for (let i = 0; i < this.hirelings.length; i++) {
+        const c = this.hirelings[i];
+        const sel = i === this.selectedIndex ? ' selected' : '';
+        const canAfford = this.state.player.credits >= 500;
+
+        html += `<div class="menu-item${sel}" data-hire-idx="${i}" style="display:flex; padding:10px; margin-bottom:5px;">`;
+        html += `<div style="margin-right:15px; border:1px solid var(--frame-border)">`;
+        html += PortraitRenderer.renderPortrait(c.portraitSeed, 80);
+        html += `</div>`;
+
+        html += `<div style="flex:1">`;
+        html += `<div class="menu-label" style="font-size:16px">${c.name}</div>`;
+        html += `<div style="color:var(--frame-text-good); font-size:12px; margin-bottom:4px;">${c.role.toUpperCase()}</div>`;
+        html += `<div class="menu-desc" style="font-size:11px; font-style:italic; margin-bottom:8px;">"${c.bio}"</div>`;
+
+        html += `<div style="display:grid; grid-template-columns: 1fr 1fr; gap:5px; font-size:10px;">`;
+        html += `<div>PIL: ${c.stats.piloting}</div>`;
+        html += `<div>ENG: ${c.stats.engineering}</div>`;
+        html += `<div>COM: ${c.stats.combat}</div>`;
+        html += `<div>SCI: ${c.stats.science}</div>`;
+        html += `</div>`;
+        html += `</div>`;
+
+        html += `<div style="text-align:right; width:100px;">`;
+        html += `<div style="font-size:12px; margin-bottom:5px;">Bonus: <span class="${canAfford ? 'good' : 'bad'}">500 CR</span></div>`;
+        html += `<div style="font-size:12px;">Salary: ${c.salary} CR</div>`;
+        if (sel) {
+          html += `<div class="action-btn" style="margin-top:10px; background:var(--frame-bg-active); padding:4px; font-size:10px; text-align:center;">[ENTER] HIRE</div>`;
+        }
+        html += `</div>`;
+
+        html += `</div>`;
+      }
+    }
+
+    html += `<div class="controls-hint">UP/DOWN to select &bull; ENTER to hire &bull; ESC back</div>`;
+    return html;
+  }
+
+  private tryHire(): void {
+    if (this.shopMode !== 'bar') return;
+    const candidate = this.hirelings[this.selectedIndex];
+    if (!candidate) return;
+
+    const capacity = getCrewCapacity(this.state.player.ship);
+    if (!this.state.player.crew) this.state.player.crew = [];
+    if (this.state.player.crew.length >= capacity) {
+      getFrameManager().showAlert('Crew capacity full!', 'danger');
+      getAudioManager().playSfx('ui_deny');
+      return;
+    }
+
+    const cost = 500;
+    if (this.state.player.credits < cost) {
+      getFrameManager().showAlert('Not enough credits!', 'danger');
+      getAudioManager().playSfx('ui_deny');
+      return;
+    }
+
+    this.state.player.credits -= cost;
+    this.state.player.crew.push(candidate);
+    this.hirelings = this.hirelings.filter(h => h.id !== candidate.id);
+
+    getFrameManager().showAlert(`${candidate.name} joined the crew!`, 'info');
+    getAudioManager().playSfx('ui_confirm');
+
+    if (this.hirelings.length === 0) {
+      this.selectedIndex = 0;
+    } else {
+      this.selectedIndex = Math.min(this.selectedIndex, this.hirelings.length - 1);
+    }
+    this.renderShop();
+  }
+
   private renderShop(): void {
     const frame = getFrameManager();
     let html = '';
@@ -365,6 +472,8 @@ export class SettlementScene extends Phaser.Scene {
       html = this.renderTradeShop();
     } else if (this.shopMode === 'modules') {
       html = this.renderModuleShop();
+    } else if (this.shopMode === 'bar') {
+      html = this.renderBar();
     }
 
     frame.setCenterContent(html);
@@ -517,10 +626,20 @@ export class SettlementScene extends Phaser.Scene {
         this.renderShop();
       });
     });
+
+    // Bar hire clicks
+    el.querySelectorAll('[data-hire-idx]').forEach(row => {
+      row.addEventListener('click', () => {
+        const idx = parseInt((row as HTMLElement).dataset.hireIdx!, 10);
+        this.selectedIndex = idx;
+        getAudioManager().playSfx('ui_navigate');
+        this.renderShop();
+      });
+    });
   }
 
   private shopNavigate(dir: number): void {
-    const max = this.shopMode === 'trade' ? this.market.length : this.moduleStock.length;
+    const max = this.shopMode === 'trade' ? this.market.length : this.shopMode === 'modules' ? this.moduleStock.length : this.hirelings.length;
     if (max === 0) return;
     this.selectedIndex = (this.selectedIndex + dir + max) % max;
     getAudioManager().playSfx('ui_navigate');
@@ -532,6 +651,8 @@ export class SettlementScene extends Phaser.Scene {
       this.tryBuy();
     } else if (this.shopMode === 'modules') {
       this.tryBuyModule();
+    } else if (this.shopMode === 'bar') {
+      this.tryHire();
     }
   }
 
@@ -672,7 +793,7 @@ export class SettlementScene extends Phaser.Scene {
     // Decide which blocks are buildings vs plazas
     const shuffledBlocks = [...blocks].sort(() => rng.next() - 0.5);
 
-    // Pick 1-2 shops
+    // Pick 1-2 shops + always a bar
     const shopCount = rng.int(1, 2);
     const tradeShops = SHOP_TEMPLATES.filter(s => s.type === 'trade');
     const moduleShops = SHOP_TEMPLATES.filter(s => s.type === 'modules');
@@ -684,6 +805,8 @@ export class SettlementScene extends Phaser.Scene {
       // Second shop is modules
       shops.push(moduleShops[rng.int(0, moduleShops.length - 1)]);
     }
+    // Always a bar
+    shops.push(BAR_TEMPLATES[rng.int(0, BAR_TEMPLATES.length - 1)]);
 
     let shopIdx = 0;
     let plazaPlaced = false;
@@ -731,7 +854,7 @@ export class SettlementScene extends Phaser.Scene {
             if (isShop && dx === Math.floor(block.w / 2) && dy === Math.floor(block.h / 2)) {
               const shopType = shops[shopIdx].type;
               this.tiles[ty][tx] = {
-                type: shopType === 'trade' ? 'shop_trade' : 'shop_modules',
+                type: shopType === 'trade' ? 'shop_trade' : shopType === 'modules' ? 'shop_modules' : 'shop_bar',
                 walkable: false,
               };
             }

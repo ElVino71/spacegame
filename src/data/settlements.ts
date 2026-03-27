@@ -6,7 +6,7 @@ import type { ChatterEntry } from './chatter';
 
 // ─── Shop Types ─────────────────────────────────────────
 
-export type ShopType = 'trade' | 'modules';
+export type ShopType = 'trade' | 'modules' | 'bar';
 
 export interface ShopDef {
   type: ShopType;
@@ -22,6 +22,12 @@ export const SHOP_TEMPLATES: ShopDef[] = [
   { type: 'modules', name: 'Ship Outfitter', desc: 'Ship modules and upgrades' },
   { type: 'modules', name: 'Tech Workshop', desc: 'Custom ship components' },
   { type: 'modules', name: 'Parts Dealer', desc: 'Salvaged and new ship parts' },
+];
+
+export const BAR_TEMPLATES: ShopDef[] = [
+  { type: 'bar', name: 'Dusty Cantina', desc: 'Drinks and crew for hire' },
+  { type: 'bar', name: 'Frontier Saloon', desc: 'Where spacers gather' },
+  { type: 'bar', name: 'The Rusty Thruster', desc: 'Cheap drinks, tough crew' },
 ];
 
 // ─── Module Catalog ─────────────────────────────────────

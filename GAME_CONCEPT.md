@@ -97,6 +97,7 @@ A 2D space exploration, trading, and combat game inspired by Starflight 2. The p
 - Seeded from planet data for deterministic layout per planet
 - Tile types: roads, road crossings, plazas, building walls/floors, doors, fences, lamps
 - 1-2 shops per settlement: trade goods shop and/or ship module shop
+- Every settlement has a bar where crew members can be recruited (same UI as station recruitment)
 - Trade shops: buy/sell subset of trade goods (6-8 items, slightly higher prices than stations)
 - Module shops: buy and install ship modules into empty slots (4-6 modules from full catalog)
 - Player walks with person sprite on roads and plazas

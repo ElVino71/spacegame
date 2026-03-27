@@ -37,6 +37,7 @@ export class PlanetSurfaceScene extends Phaser.Scene {
   private playerY = MAP_SIZE / 2;
   private lastMoveTime = 0;
   private roverCargo: CargoItem[] = [];
+  private roverHull = { current: 50, max: 50 };
 
   // Input
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
@@ -56,10 +57,12 @@ export class PlanetSurfaceScene extends Phaser.Scene {
     this.playerY = MAP_SIZE / 2;
     this.lastMoveTime = 0;
     this.roverCargo = [];
+    this.roverHull = { current: 50, max: 50 };
 
     // Setup frame
     const frame = getFrameManager();
     frame.enterGameplay(`Surface: ${this.planet.name}`);
+    frame.setHullLabel('ROVER');
     frame.setThemeFromShip(this.state.player.ship);
     frame.showPanel(PANEL_WIDTH);
     this.setupPanelContent();
@@ -146,9 +149,9 @@ export class PlanetSurfaceScene extends Phaser.Scene {
     const cargoUsed = getCargoUsed(this.state.player.cargo);
     const cargoMax = getCargoCapacity(ship);
 
-    // Update bottom bar
+    // Update bottom bar — show rover hull, not ship hull
     const frame = getFrameManager();
-    frame.updateStatus(ship.hull, ship.fuel, cargoUsed, cargoMax, this.state.player.credits);
+    frame.updateStatus(this.roverHull, ship.fuel, cargoUsed, cargoMax, this.state.player.credits);
 
     // Planet info
     const panelPlanet = document.getElementById('panel-planet')!;
@@ -163,9 +166,11 @@ export class PlanetSurfaceScene extends Phaser.Scene {
     // Player status
     const roverUsed = this.roverCargo.reduce((t, i) => t + i.quantity, 0);
     const panelStatus = document.getElementById('panel-status')!;
+    const roverPct = Math.floor((this.roverHull.current / this.roverHull.max) * 100);
+    const roverCls = roverPct > 50 ? 'good' : roverPct > 25 ? 'warn' : 'bad';
     panelStatus.innerHTML =
-      `<div class="section-title">Status</div>` +
-      this.row('Hull', `${Math.floor(ship.hull.current)}/${ship.hull.max}`) +
+      `<div class="section-title">Rover Status</div>` +
+      this.row('Rover Hull', `${this.roverHull.current}/${this.roverHull.max}`, roverCls) +
       this.row('Ship Cargo', `${cargoUsed}/${cargoMax}`) +
       this.row('Credits', `${this.state.player.credits} CR`, 'good') +
       this.row('Position', `${this.playerX}, ${this.playerY}`);

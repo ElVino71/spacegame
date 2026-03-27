@@ -204,6 +204,20 @@ tiles['shop_modules'] = () => {
   return p;
 };
 
+// Shop bar — building with drink/mug symbol
+tiles['shop_bar'] = () => {
+  const p = createCanvas();
+  fill(p, 130, 125, 115); // floor base
+  // Mug body
+  rect(p, 4, 5, 9, 11, 160, 130, 80);
+  rect(p, 5, 6, 8, 10, 120, 90, 50);
+  // Handle
+  rect(p, 10, 6, 11, 9, 160, 130, 80);
+  // Foam top
+  rect(p, 4, 3, 9, 5, 220, 220, 200);
+  return p;
+};
+
 // Plaza — open paved area
 tiles['plaza'] = () => {
   const p = createCanvas();

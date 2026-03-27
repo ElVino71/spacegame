@@ -77,7 +77,7 @@ export class BootScene extends Phaser.Scene {
     // Load settlement tiles
     const settlementTileNames = [
       'road', 'road_cross', 'building_wall', 'building_floor', 'building_door',
-      'shop_trade', 'shop_modules', 'plaza', 'fence', 'lamp', 'person',
+      'shop_trade', 'shop_modules', 'shop_bar', 'plaza', 'fence', 'lamp', 'person',
     ];
     for (const name of settlementTileNames) {
       this.load.image(`settlement_${name}`, `assets/tiles/settlement/${name}.png`);

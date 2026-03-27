@@ -25,6 +25,7 @@ export class FrameManager {
   private centerOverlayEl!: HTMLElement;
   private chatterWindowEl!: HTMLElement;
   private modalOverlayEl!: HTMLElement;
+  private hullLabelEl!: HTMLElement;
   private cornerEls: HTMLElement[] = [];
   private edgeEls!: HTMLElement[];
   private initialized = false;
@@ -133,6 +134,7 @@ export class FrameManager {
     this.centerOverlayEl = this.frameEl.querySelector('.frame-center-overlay')!;
     this.chatterWindowEl = this.frameEl.querySelector('.frame-chatter-window')!;
     this.modalOverlayEl = this.frameEl.querySelector('.frame-modal-overlay')!;
+    this.hullLabelEl = this.frameEl.querySelector('.hull-fill')!.closest('.frame-status-item')!.querySelector('.frame-status-label')!;
     this.cornerEls = Array.from(this.frameEl.querySelectorAll('.frame-corner'));
     this.edgeEls = Array.from(this.frameEl.querySelectorAll('.frame-edge'));
 
@@ -280,6 +282,17 @@ export class FrameManager {
     this.modalOverlayEl.classList.add('visible');
   }
 
+  showModalHtml(title: string, bodyHtml: string, hint: string = ''): void {
+    this.modalOverlayEl.querySelector('.frame-modal-title')!.textContent = title;
+    this.modalOverlayEl.querySelector('.frame-modal-body')!.innerHTML = bodyHtml;
+    this.modalOverlayEl.querySelector('.frame-modal-hint')!.textContent = hint;
+    this.modalOverlayEl.classList.add('visible');
+  }
+
+  getModalBodyEl(): HTMLElement {
+    return this.modalOverlayEl.querySelector('.frame-modal-body')!;
+  }
+
   hideModal(): void {
     this.modalOverlayEl.classList.remove('visible');
   }
@@ -289,6 +302,10 @@ export class FrameManager {
   }
 
   // --- Bottom Bar Status ---
+
+  setHullLabel(label: string): void {
+    this.hullLabelEl.textContent = label;
+  }
 
   updateStatus(hull: { current: number; max: number }, fuel: { current: number; max: number }, cargoUsed: number, cargoMax: number, credits: number): void {
     const hullPct = Math.round((hull.current / hull.max) * 100);
@@ -426,6 +443,7 @@ export class FrameManager {
     this.hidePanel();
     this.hideCenterOverlay();
     this.setSceneTitle(sceneTitle);
+    this.setHullLabel('HULL');
   }
 
   /** Minimal frame - border only, no bars (for transitions, boot) */
