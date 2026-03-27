@@ -2,7 +2,8 @@ import Phaser from 'phaser';
 import { getGameState, GameState } from '../GameState';
 import { COLORS, GAME_WIDTH, GAME_HEIGHT } from '../utils/Constants';
 import { ModuleSlot, ModuleType } from '../entities/Ship';
-import { getCargoCapacity, getCargoUsed } from '../entities/Player';
+import { getCargoCapacity, getCargoUsed, getRepairDiscount, getFuelEfficiency } from '../entities/Player';
+import { CrewMember } from '../entities/Character';
 import { getFrameManager } from '../ui/FrameManager';
 import { getAudioManager } from '../audio/AudioManager';
 import { getChatterSystem } from '../systems/ChatterSystem';
@@ -14,7 +15,7 @@ const PANEL_WIDTH = 340;
 const TILE_SIZE = 32;
 const TILE_SCALE = 2;
 const SCALED_TILE = TILE_SIZE * TILE_SCALE;
-const ROOM_HEIGHT_TILES = 5;   // room is 5 tiles tall
+const ROOM_HEIGHT_TILES = 3;   // room is 3 tiles tall
 const CORRIDOR_WIDTH_TILES = 2; // corridor is 2 tiles wide between rooms
 const FLOOR_Y_TILE = ROOM_HEIGHT_TILES - 1; // floor is the bottom tile row
 const PLAYER_SPEED = 200;
@@ -32,6 +33,21 @@ interface Room {
   color: number;
 }
 
+interface CrewSpriteData {
+  gfx: Phaser.GameObjects.Graphics;
+  x: number;           // current world x
+  targetX: number;     // wandering target x
+  roomX: number;       // room left edge
+  roomRight: number;   // room right edge
+  floorY: number;      // floor y position
+  role: string;
+  speed: number;
+  waitTimer: number;   // seconds until next move
+  facingRight: boolean;
+  walkFrame: number;
+  walkTimer: number;
+}
+
 export class ShipInteriorScene extends Phaser.Scene {
   private state!: GameState;
   private rooms: Room[] = [];
@@ -47,7 +63,9 @@ export class ShipInteriorScene extends Phaser.Scene {
   private walkTimer = 0;
   private themeId = 'retro-scifi';
   private roomLabels: Phaser.GameObjects.Text[] = [];
-  private crewSprites: Phaser.GameObjects.Graphics[] = [];
+  private crewData: CrewSpriteData[] = [];
+  private crewManageMode = false;
+  private crewManageIndex = 0;
 
   constructor() {
     super({ key: 'ShipInteriorScene' });
@@ -109,9 +127,10 @@ export class ShipInteriorScene extends Phaser.Scene {
     // Setup camera - offset for panel, follow player horizontally
     const cam = this.cameras.main;
     cam.setViewport(PANEL_WIDTH, 0, GAME_WIDTH - PANEL_WIDTH, GAME_HEIGHT);
+    const shipMidY = this.rooms[0].y + (ROOM_HEIGHT_TILES * SCALED_TILE) / 2;
     cam.setBounds(
       this.rooms[0].x - 100,
-      this.rooms[0].y - 80,
+      shipMidY - GAME_HEIGHT / 2,
       this.getTotalShipWidth() + 200,
       GAME_HEIGHT
     );
@@ -127,11 +146,30 @@ export class ShipInteriorScene extends Phaser.Scene {
 
     this.input.keyboard!.on('keydown-TAB', (e: KeyboardEvent) => {
       e.preventDefault();
-      this.scene.start('SystemScene');
+      if (!this.crewManageMode) this.scene.start('SystemScene');
     });
-    this.input.keyboard!.on('keydown-T', () => this.scene.start('TerminalScene'));
-    this.input.keyboard!.on('keydown-M', () => this.scene.start('GalaxyMapScene'));
+    this.input.keyboard!.on('keydown-T', () => {
+      if (!this.crewManageMode) this.scene.start('TerminalScene');
+    });
+    this.input.keyboard!.on('keydown-M', () => {
+      if (!this.crewManageMode) this.scene.start('GalaxyMapScene');
+    });
     this.input.keyboard!.on('keydown-ENTER', () => this.interactWithRoom());
+    this.input.keyboard!.on('keydown-ESC', () => {
+      if (this.crewManageMode) this.exitCrewManageMode();
+    });
+    this.input.keyboard!.on('keydown-UP', () => {
+      if (this.crewManageMode) this.navigateCrewList(-1);
+    });
+    this.input.keyboard!.on('keydown-DOWN', () => {
+      if (this.crewManageMode) this.navigateCrewList(1);
+    });
+    this.input.keyboard!.on('keydown-W', () => {
+      if (this.crewManageMode) this.navigateCrewList(-1);
+    });
+    this.input.keyboard!.on('keydown-S', () => {
+      if (this.crewManageMode) this.navigateCrewList(1);
+    });
 
     getAudioManager().setAmbience('ship_interior');
 
@@ -150,6 +188,7 @@ export class ShipInteriorScene extends Phaser.Scene {
     this.handleMovement(dt);
     this.findCurrentRoom();
     this.drawPlayer(dt);
+    this.updateCrew(dt);
     this.updateCamera();
     this.updatePanel();
   }
@@ -503,6 +542,8 @@ export class ShipInteriorScene extends Phaser.Scene {
   // ─── MOVEMENT ──────────────────────────────────────────
 
   private handleMovement(dt: number): void {
+    if (this.crewManageMode) return; // No movement during crew management
+
     let dx = 0;
 
     if (this.cursors.left.isDown || this.wasd.A.isDown) {
@@ -600,7 +641,8 @@ export class ShipInteriorScene extends Phaser.Scene {
     const viewWidth = GAME_WIDTH - PANEL_WIDTH;
     const targetX = this.playerX - viewWidth / 2;
     cam.scrollX = Phaser.Math.Linear(cam.scrollX, targetX, 0.1);
-    cam.scrollY = this.rooms[0].y - 80;
+    const shipMidY = this.rooms[0].y + (ROOM_HEIGHT_TILES * SCALED_TILE) / 2;
+    cam.scrollY = shipMidY - GAME_HEIGHT / 2;
   }
 
   // ─── PANEL UI ──────────────────────────────────────────
@@ -616,6 +658,12 @@ export class ShipInteriorScene extends Phaser.Scene {
     const cargoMax = getCargoCapacity(ship);
 
     frame.updateStatus(ship.hull, ship.fuel, cargoUsed, cargoMax, this.state.player.credits);
+
+    // Crew management mode takes over the panel
+    if (this.crewManageMode && this.currentRoom) {
+      frame.setPanelContent(this.buildCrewManagePanel());
+      return;
+    }
 
     let html = '';
 
@@ -731,20 +779,159 @@ export class ShipInteriorScene extends Phaser.Scene {
   private interactWithRoom(): void {
     if (!this.currentRoom) return;
 
+    if (this.crewManageMode) {
+      // In crew manage mode, ENTER assigns the selected crew member to this room
+      this.assignSelectedCrew();
+      return;
+    }
+
+    // Check if there's crew to manage or if we should open crew management
+    const crew = this.state.player.crew || [];
+    if (crew.length > 0) {
+      this.enterCrewManageMode();
+      return;
+    }
+
+    // Fallback interactions for rooms with no crew
     switch (this.currentRoom.type) {
       case 'bridge':
         this.scene.start('TerminalScene');
         break;
-      case 'cargo':
-        // TODO: cargo jettison UI
-        break;
     }
+  }
+
+  private enterCrewManageMode(): void {
+    this.crewManageMode = true;
+    this.crewManageIndex = 0;
+    this.updatePanel();
+  }
+
+  private exitCrewManageMode(): void {
+    this.crewManageMode = false;
+    this.crewManageIndex = 0;
+    // Refresh crew sprites to reflect new assignments
+    this.createCrewSprites();
+    this.updatePanel();
+  }
+
+  private assignSelectedCrew(): void {
+    if (!this.currentRoom) return;
+    const crew = this.state.player.crew || [];
+    if (crew.length === 0) return;
+
+    const member = crew[this.crewManageIndex];
+    if (!member) return;
+
+    const currentAssignment = member.assignedRoom || 'bridge';
+    const targetRoom = this.currentRoom.type;
+
+    if (currentAssignment.toLowerCase() === targetRoom.toLowerCase()) {
+      // Already assigned here — unassign back to bridge
+      member.assignedRoom = 'bridge';
+    } else {
+      member.assignedRoom = targetRoom;
+    }
+
+    // Refresh sprites and panel
+    this.createCrewSprites();
+    this.updatePanel();
+  }
+
+  private navigateCrewList(direction: number): void {
+    const crew = this.state.player.crew || [];
+    if (crew.length === 0) return;
+    this.crewManageIndex = (this.crewManageIndex + direction + crew.length) % crew.length;
+    this.updatePanel();
+  }
+
+  private getRoomBonusHint(roomType: string, member: CrewMember): string {
+    const role = member.role;
+    if (roomType === 'bridge' && role === 'pilot') {
+      const bonus = Math.round(member.stats.piloting * 5);
+      return `<span class="good">+${bonus}% ship speed</span>`;
+    }
+    if (roomType === 'engine' && role === 'engineer') {
+      const fuelBonus = Math.round(member.stats.engineering * 1.5);
+      const repairBonus = Math.round(member.stats.engineering * 3);
+      return `<span class="good">-${fuelBonus}% fuel, -${repairBonus}% repair</span>`;
+    }
+    if (roomType === 'weapons' && role === 'gunner') {
+      const bonus = Math.round(member.stats.combat * 5);
+      return `<span class="good">+${bonus}% weapon damage</span>`;
+    }
+    if (roomType === 'sensors' && role === 'scientist') {
+      const bonus = Math.round(member.stats.science * 5);
+      return `<span class="good">+${bonus}% sensor range</span>`;
+    }
+    if (roomType === 'hull' && role === 'engineer') {
+      const bonus = Math.round(member.stats.engineering * 3);
+      return `<span class="good">-${bonus}% repair cost</span>`;
+    }
+    if (roomType === 'life_support' && role === 'medic') {
+      return `<span class="good">+1 morale/jump</span>`;
+    }
+    return '';
+  }
+
+  private buildCrewManagePanel(): string {
+    const room = this.currentRoom!;
+    const crew = this.state.player.crew || [];
+    let html = '';
+
+    html += `<div class="section">`;
+    html += `<div class="section-title">Crew Management</div>`;
+    html += `<div style="font-size:10px; color:var(--frame-text-muted); margin-bottom:8px;">Assign crew to: <strong>${room.label}</strong></div>`;
+    html += `</div>`;
+
+    for (let i = 0; i < crew.length; i++) {
+      const c = crew[i];
+      const assigned = c.assignedRoom || 'bridge';
+      const isHere = assigned.toLowerCase() === room.type.toLowerCase();
+      const isSelected = i === this.crewManageIndex;
+      const bonusHint = this.getRoomBonusHint(room.type, c);
+
+      const borderColor = isSelected ? 'var(--frame-border-highlight, var(--frame-border))' : 'rgba(255,255,255,0.1)';
+      const bgColor = isSelected ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.03)';
+      const selector = isSelected ? '▶ ' : '  ';
+
+      html += `<div class="section" style="padding:8px; margin-bottom:4px; border:1px solid ${borderColor}; background:${bgColor};">`;
+      html += `<div style="display:flex; align-items:center;">`;
+      html += `<div style="margin-right:8px; border:1px solid var(--frame-border); background:rgba(0,0,0,0.3)">`;
+      html += PortraitRenderer.renderPortrait(c.portraitSeed, 40);
+      html += `</div>`;
+      html += `<div style="flex:1;">`;
+      html += `<div style="font-size:11px; font-weight:bold;">${selector}${c.name}</div>`;
+      html += `<div style="font-size:9px; color:var(--frame-text-good);">${c.role.toUpperCase()}</div>`;
+
+      // Find the room label for current assignment
+      const assignedRoom = this.rooms.find(r => r.type.toLowerCase() === assigned.toLowerCase());
+      const assignedLabel = assignedRoom ? assignedRoom.label : 'Bridge';
+      html += `<div style="font-size:9px; color:var(--frame-text-muted);">Assigned: ${assignedLabel}${isHere ? ' ✓' : ''}</div>`;
+
+      if (isSelected && bonusHint) {
+        html += `<div style="font-size:9px; margin-top:2px;">${bonusHint}</div>`;
+      }
+
+      html += `</div>`;
+      html += `</div>`;
+      html += `</div>`;
+    }
+
+    html += `<div class="section">`;
+    html += `<div class="controls">`;
+    html += `<span>W/S</span> or <span>↑/↓</span> Select crew<br>`;
+    html += `<span>ENTER</span> Assign to room<br>`;
+    html += `<span>ESC</span> Close`;
+    html += `</div>`;
+    html += `</div>`;
+
+    return html;
   }
 
   private createCrewSprites(): void {
     // Clear old sprites
-    this.crewSprites.forEach(s => s.destroy());
-    this.crewSprites = [];
+    this.crewData.forEach(s => s.gfx.destroy());
+    this.crewData = [];
 
     const crew = this.state.player.crew || [];
     const rng = new SeededRandom(hashString(this.state.player.ship.name) + 42);
@@ -752,25 +939,75 @@ export class ShipInteriorScene extends Phaser.Scene {
     for (const c of crew) {
       const assigned = c.assignedRoom || 'bridge';
       const room = this.rooms.find(r => r.type.toLowerCase() === assigned.toLowerCase()) || this.rooms[0];
-      
-      const sprite = this.add.graphics().setDepth(5);
-      
-      // Random position within room (not overlapping walls/corridors too much)
-      const xOffset = rng.int(20, room.widthPx - 20);
-      const wx = room.x + xOffset;
-      const wy = room.y + (FLOOR_Y_TILE * SCALED_TILE);
-      
-      this.drawCrewMember(sprite, wx, wy, c.role);
-      this.crewSprites.push(sprite);
+
+      const gfx = this.add.graphics().setDepth(5);
+      const margin = 20;
+      const roomLeft = room.x + margin;
+      const roomRight = room.x + room.widthPx - margin;
+      const wx = rng.int(roomLeft, roomRight);
+      const floorY = room.y + (FLOOR_Y_TILE * SCALED_TILE);
+
+      const data: CrewSpriteData = {
+        gfx,
+        x: wx,
+        targetX: wx,
+        roomX: roomLeft,
+        roomRight,
+        floorY,
+        role: c.role,
+        speed: 20 + rng.int(0, 20),
+        waitTimer: rng.float(1, 4),
+        facingRight: rng.next() > 0.5,
+        walkFrame: 0,
+        walkTimer: 0,
+      };
+
+      this.drawCrewMember(data);
+      this.crewData.push(data);
     }
   }
 
-  private drawCrewMember(gfx: Phaser.GameObjects.Graphics, x: number, y: number, role: string): void {
+  private updateCrew(dt: number): void {
+    for (const c of this.crewData) {
+      if (c.waitTimer > 0) {
+        // Standing still
+        c.waitTimer -= dt;
+        if (c.waitTimer <= 0) {
+          // Pick a new target within the room
+          const range = c.roomRight - c.roomX;
+          c.targetX = c.roomX + Math.random() * range;
+        }
+      } else {
+        // Walk toward target
+        const dx = c.targetX - c.x;
+        if (Math.abs(dx) < 2) {
+          // Arrived — wait before next move
+          c.x = c.targetX;
+          c.waitTimer = 2 + Math.random() * 4;
+          c.walkFrame = 0;
+        } else {
+          c.facingRight = dx > 0;
+          c.x += Math.sign(dx) * c.speed * dt;
+          c.walkTimer += dt;
+          if (c.walkTimer > 0.2) {
+            c.walkTimer = 0;
+            c.walkFrame = (c.walkFrame + 1) % 2;
+          }
+        }
+      }
+      this.drawCrewMember(c);
+    }
+  }
+
+  private drawCrewMember(c: CrewSpriteData): void {
+    const gfx = c.gfx;
+    const x = c.x;
+    const y = c.floorY;
     gfx.clear();
-    
+
     // Role color
     let color = 0xcccccc;
-    switch (role.toLowerCase()) {
+    switch (c.role.toLowerCase()) {
       case 'pilot': color = 0x00ffff; break;
       case 'engineer': color = 0xffaa00; break;
       case 'gunner': color = 0xff3333; break;
@@ -779,15 +1016,19 @@ export class ShipInteriorScene extends Phaser.Scene {
       case 'navigator': color = 0xaaaaff; break;
     }
 
-    // Stick figure
+    // Leg sway for walking animation
+    const legSway = c.walkFrame === 1 ? 3 : 0;
+    const dir = c.facingRight ? 1 : -1;
+
     gfx.lineStyle(2, color, 1);
     // Body
     gfx.lineBetween(x, y - 24, x, y - 10);
-    // Arms
-    gfx.lineBetween(x - 6, y - 20, x + 6, y - 20);
-    // Legs
-    gfx.lineBetween(x, y - 10, x - 5, y);
-    gfx.lineBetween(x, y - 10, x + 5, y);
+    // Arms — slight swing when walking
+    const armSwing = c.walkFrame === 1 ? 2 * dir : 0;
+    gfx.lineBetween(x - 6 + armSwing, y - 20, x + 6 + armSwing, y - 20);
+    // Legs — stride when walking
+    gfx.lineBetween(x, y - 10, x - 5 + legSway * dir, y);
+    gfx.lineBetween(x, y - 10, x + 5 - legSway * dir, y);
     // Head
     gfx.fillStyle(color, 1);
     gfx.fillCircle(x, y - 28, 4);

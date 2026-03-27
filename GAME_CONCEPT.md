@@ -33,8 +33,10 @@ A 2D space exploration, trading, and combat game inspired by Starflight 2. The p
 
 ### 3. Ship Interior (Side-On 2D) — IMPLEMENTED
 - Cross-section view of the ship showing rooms matching installed modules
+- Compact 3-tile-tall rooms, vertically centered on screen
 - Rooms generated from ship's module slot configuration (bridge, engine room, cargo bay, etc.)
 - Player character (stick figure) walks between rooms with WASD
+- Crew members wander within their assigned rooms with walk animations
 - Each room displays its module stats in the info panel
 - Bridge shows overall ship status
 - Access terminal with T key
@@ -48,11 +50,20 @@ A 2D space exploration, trading, and combat game inspired by Starflight 2. The p
 - SPACE to interact with minerals/ruins/settlements
 - Animated takeoff transition when leaving (ESC)
 
-### 5. Ruins / Dungeons (Top-Down) — NOT YET IMPLEMENTED
-- Entered from planet surface when discovering ruins
-- Puzzles, traps, loot, and lore fragments
-- Some ruins require specific equipment to access deeper areas
-- Boss encounters or guardians protecting valuable tech
+### 5. Ruins / Dungeons (Top-Down) — IMPLEMENTED (Basic)
+- Entered from planet surface when pressing SPACE on ruin entrance tile
+- 48×48 procedurally generated dungeon using BSP room/corridor algorithm
+- Seeded from planet data for deterministic layout per planet
+- Player uses person sprite (not rover) for interior exploration
+- Tile types: floor (3 variants), walls, doors (open on approach), rubble
+- Traps: pressure plates, gas vents, energy discharges, pit traps, guardian beams — deal hull damage
+- Encounters: guardian drones, crystal spiders, shadow wraiths, nano-swarms, stone sentinels — fight or flee
+- Treasure chests with rarity-weighted loot (common/uncommon/rare artifacts)
+- Lore tablets with precursor civilization story fragments (20+ entries)
+- Stairs up (exit to surface), stairs down (future: deeper levels)
+- Loot transferred to ship cargo on exit
+- Scene-specific atmospheric chatter
+- NOT YET: Multi-level ruins, puzzles, equipment-gated areas, boss encounters
 
 ### 6. Ship Computer Terminal — IMPLEMENTED
 - Full-screen terminal interface with CRT-style scanline effect
@@ -126,7 +137,7 @@ A 2D space exploration, trading, and combat game inspired by Starflight 2. The p
 - Procedural galaxy with ~300 star systems
 - Systems discovered when visited or connected to a visited system
 - Planet surfaces with procedural terrain and POIs
-- NOT YET: Ruin exploration and lore fragment collection
+- Ruin exploration with traps, encounters, loot, and lore fragments
 - NOT YET: Derelict ships to board and salvage
 - NOT YET: Anomalies (wormholes, nebulae, space creatures)
 
@@ -270,10 +281,11 @@ A persistent HTML/CSS frame wraps the entire game canvas, providing a cockpit-li
 - [x] Salary costs deducted per jump
 - [x] Ship class determines crew capacity (scout: 2, explorer: 3, freighter: 4, corvette: 5, gunship: 6)
 - [x] Crew stats provide bonuses to ship speed, jump range, and sensor range
-- [ ] Room reassignment UI for crew members
+- [x] Room reassignment UI for crew members (ENTER in ship interior rooms)
+- [x] Crew-driven chatter (role-specific, morale-dependent, templated)
+- [x] Crew role bonuses: engineer (fuel/repair), gunner (damage), medic (morale)
 - [ ] Morale system (events, crew interaction)
-- [ ] Crew-driven events and chatter
-- [ ] Combat and repair bonuses from crew
+- [ ] Crew dismissal/firing
 
 ### Character Portraits
 - [x] 3×3 grid of 32×32 tiles composited into 96×96 portraits

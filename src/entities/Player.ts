@@ -113,3 +113,31 @@ export function getShieldCapacity(ship: ShipData): number {
   const shield = ship.slots.find(s => s.type === 'shield' && s.module)?.module;
   return shield?.stats.capacity ?? 0;
 }
+
+/** Engineer in engine room reduces fuel consumption (up to 15%) */
+export function getFuelEfficiency(crew: CrewMember[] = []): number {
+  const engineer = crew.find(c => c.role === 'engineer' && c.assignedRoom === 'engine');
+  if (!engineer) return 1;
+  return 1 - (engineer.stats.engineering * 0.015); // up to 15% reduction
+}
+
+/** Engineer assigned to hull or engine room reduces repair cost (up to 30%) */
+export function getRepairDiscount(crew: CrewMember[] = []): number {
+  const engineer = crew.find(c => c.role === 'engineer' &&
+    (c.assignedRoom === 'hull' || c.assignedRoom === 'engine'));
+  if (!engineer) return 1;
+  return 1 - (engineer.stats.engineering * 0.03); // up to 30% reduction
+}
+
+/** Gunner in weapons bay increases weapon damage (up to 50%) */
+export function getWeaponDamageBonus(crew: CrewMember[] = []): number {
+  const gunner = crew.find(c => c.role === 'gunner' && c.assignedRoom === 'weapons');
+  if (!gunner) return 1;
+  return 1 + (gunner.stats.combat * 0.05); // up to 50% bonus
+}
+
+/** Medic in life support grants morale bonus per jump */
+export function getMedicMoraleBonus(crew: CrewMember[] = []): number {
+  const medic = crew.find(c => c.role === 'medic' && c.assignedRoom === 'life_support');
+  return medic ? 1 : 0; // +1 extra morale per jump if medic in life support
+}

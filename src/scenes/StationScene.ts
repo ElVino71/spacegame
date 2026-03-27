@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { getGameState, GameState } from '../GameState';
 import { FACTION_NAMES } from '../data/factions';
 import { StationData } from '../entities/StarSystem';
-import { getCargoCapacity, getCargoUsed, getCrewCapacity } from '../entities/Player';
+import { getCargoCapacity, getCargoUsed, getCrewCapacity, getRepairDiscount } from '../entities/Player';
 import { SeededRandom } from '../utils/SeededRandom';
 import { getFrameManager } from '../ui/FrameManager';
 import { getAudioManager } from '../audio/AudioManager';
@@ -330,13 +330,20 @@ export class StationScene extends Phaser.Scene {
   private renderRepair(): string {
     const ship = this.state.player.ship;
     const dmg = ship.hull.max - ship.hull.current;
-    const cost = Math.ceil(dmg * 2);
+    const discount = getRepairDiscount(this.state.player.crew || []);
+    const baseCost = Math.ceil(dmg * 2);
+    const cost = Math.ceil(dmg * 2 * discount);
     const canAfford = this.state.player.credits >= cost;
+    const hasDiscount = discount < 1;
 
     let html = `<div class="center-section-title">Repair Hull</div>`;
     html += `<div class="service-panel">`;
     html += `<div class="row"><span class="label">Current Hull</span><span class="value">${Math.floor(ship.hull.current)} / ${ship.hull.max}</span></div>`;
     html += `<div class="row"><span class="label">Damage</span><span class="value">${Math.ceil(dmg)}</span></div>`;
+    if (hasDiscount) {
+      html += `<div class="row"><span class="label">Base Cost</span><span class="value" style="text-decoration:line-through;opacity:0.5">${baseCost} CR</span></div>`;
+      html += `<div class="row"><span class="label">Engineer Discount</span><span class="value good">-${Math.round((1 - discount) * 100)}%</span></div>`;
+    }
     html += `<div class="row"><span class="label">Repair Cost</span><span class="value ${canAfford ? 'good' : 'bad'}">${cost} CR</span></div>`;
     html += `</div>`;
     html += `<div class="controls-hint">[ENTER] Repair &bull; ESC back</div>`;
@@ -520,7 +527,8 @@ export class StationScene extends Phaser.Scene {
     const ship = this.state.player.ship;
     const dmg = ship.hull.max - ship.hull.current;
     if (dmg <= 0) return;
-    const cost = Math.ceil(dmg * 2);
+    const discount = getRepairDiscount(this.state.player.crew || []);
+    const cost = Math.ceil(dmg * 2 * discount);
     if (this.state.player.credits < cost) return;
 
     this.state.player.credits -= cost;

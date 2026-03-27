@@ -12,7 +12,7 @@ import { BIOME_CONFIGS } from '../data/planets';
 const MAP_SIZE = 128;
 const TILE_SIZE = 16;
 const PANEL_WIDTH = 240;
-const MOVE_DELAY = 100; // ms between tile moves
+const MOVE_DELAY = 150; // ms between tile moves
 const ROVER_CARGO_MAX = 5;
 
 interface SurfaceTile {
@@ -397,7 +397,15 @@ export class PlanetSurfaceScene extends Phaser.Scene {
       this.redrawTile(this.playerX, this.playerY);
       this.updatePanel();
     } else if (tile.type === 'ruin_entrance') {
-      // TODO: Enter ruins scene
+      getAudioManager().playSfx('land');
+      const frame = getFrameManager();
+      frame.hidePanel();
+      this.scene.start('TransitionScene', {
+        type: 'land',
+        targetScene: 'RuinsScene',
+        targetData: { planet: this.planet },
+        text: 'DESCENDING INTO RUINS...',
+      });
     } else if (tile.type === 'settlement') {
       // TODO: Settlement/trade interface
     }

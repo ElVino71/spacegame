@@ -146,7 +146,7 @@ export class TerminalScene extends Phaser.Scene {
     this.lines.push({ text: '', color: nextLine.color });
 
     this.typingTimer = this.time.addEvent({
-      delay: 15, // 15ms per character
+      delay: 7, // 7ms per character
       callback: this.typeNextCharacter,
       callbackScope: this,
       loop: true

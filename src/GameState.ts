@@ -1,5 +1,5 @@
 import { StarSystemData } from './entities/StarSystem';
-import { PlayerData, createNewPlayer } from './entities/Player';
+import { PlayerData, createNewPlayer, getFuelEfficiency, getMedicMoraleBonus } from './entities/Player';
 import { generateGalaxy } from './generation/GalaxyGenerator';
 
 export class GameState {
@@ -42,25 +42,26 @@ export class GameState {
     const dx = current.x - target.x;
     const dy = current.y - target.y;
     const dist = Math.sqrt(dx * dx + dy * dy);
-    const fuelCost = dist * 0.05;
+    const crew = this.player.crew || [];
+    const fuelCost = dist * 0.05 * getFuelEfficiency(crew);
 
     if (this.player.ship.fuel.current < fuelCost) return false;
 
     // Deduct salary
-    const crew = this.player.crew || [];
     const totalSalary = crew.reduce((sum, c) => sum + c.salary, 0);
     this.player.credits -= totalSalary;
-    
+
     // Low credits = morale drop
+    const medicBonus = getMedicMoraleBonus(crew);
     if (this.player.credits < 0) {
       this.player.credits = 0;
       for (const c of crew) {
-        c.morale = Math.max(0, c.morale - 10);
+        c.morale = Math.max(0, c.morale - 10 + medicBonus);
       }
     } else {
       // Small morale boost on successful jump if paid
       for (const c of crew) {
-        c.morale = Math.min(100, c.morale + 1);
+        c.morale = Math.min(100, c.morale + 1 + medicBonus);
       }
     }
 

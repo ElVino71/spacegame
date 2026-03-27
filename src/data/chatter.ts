@@ -53,3 +53,55 @@ export const STATION_CHATTER: ChatterEntry[] = [
   { text: "Intercepting local traffic control chatter... busy today.", weight: 1 },
   { text: "Station personnel: 'Keep it legal, Captain.'", weight: 1 },
 ];
+
+/** Crew chatter templates — {name} and {role} are resolved at runtime */
+export interface CrewChatterTemplate {
+  text: string;
+  weight: number;
+  color?: string;
+  role?: string; // If set, only triggers for crew with this role
+  moraleMin?: number; // Minimum morale to trigger (0-100)
+  moraleMax?: number; // Maximum morale to trigger (0-100)
+}
+
+export const CREW_CHATTER: CrewChatterTemplate[] = [
+  // Generic crew lines
+  { text: "{name} reports all systems nominal from {room}.", weight: 1 },
+  { text: "{name}: 'Another day, another jump, Captain.'", weight: 1 },
+  { text: "{name} is humming quietly at their station.", weight: 0.5 },
+  { text: "{name}: 'Standing by, Captain.'", weight: 1 },
+  { text: "{name} stretches and adjusts their console.", weight: 0.5 },
+
+  // Role-specific lines
+  { text: "{name}: 'Engines are purring like a kitten, Captain.'", weight: 1.5, role: 'engineer' },
+  { text: "{name}: 'I've optimized the fuel injector timing. Should save us a few drops.'", weight: 1, role: 'engineer' },
+  { text: "{name} is elbow-deep in a maintenance panel.", weight: 0.8, role: 'engineer' },
+
+  { text: "{name}: 'Course is steady. No drift detected.'", weight: 1.5, role: 'pilot' },
+  { text: "{name}: 'Ready for maneuvers on your command.'", weight: 1, role: 'pilot' },
+  { text: "{name} adjusts the flight stick with practiced ease.", weight: 0.8, role: 'pilot' },
+
+  { text: "{name}: 'Weapons primed and locked, Captain.'", weight: 1.5, role: 'gunner' },
+  { text: "{name}: 'Keeping the targeting array calibrated. Just in case.'", weight: 1, role: 'gunner' },
+  { text: "{name} is polishing a sidearm at their station.", weight: 0.8, role: 'gunner' },
+
+  { text: "{name}: 'Fascinating readings on the long-range sensors.'", weight: 1.5, role: 'scientist' },
+  { text: "{name}: 'I'm cataloguing some interesting spectral anomalies.'", weight: 1, role: 'scientist' },
+  { text: "{name} is scribbling notes on a datapad.", weight: 0.8, role: 'scientist' },
+
+  { text: "{name}: 'Crew vitals are all green, Captain.'", weight: 1.5, role: 'medic' },
+  { text: "{name}: 'Remind me to restock the med supplies at the next station.'", weight: 1, role: 'medic' },
+  { text: "{name} is reorganizing the first aid kit. Again.", weight: 0.8, role: 'medic' },
+
+  { text: "{name}: 'I've plotted three possible routes from here.'", weight: 1.5, role: 'navigator' },
+  { text: "{name}: 'Star charts are up to date, Captain.'", weight: 1, role: 'navigator' },
+  { text: "{name} is studying a holographic star map intently.", weight: 0.8, role: 'navigator' },
+
+  // Morale-dependent lines
+  { text: "{name}: 'Love this ship. Love this crew. Life is good.'", weight: 1.2, moraleMin: 80, color: 'good' },
+  { text: "{name} is whistling a cheerful tune.", weight: 0.8, moraleMin: 70 },
+  { text: "{name}: 'Not a bad gig, all things considered.'", weight: 1, moraleMin: 50, moraleMax: 80 },
+  { text: "{name} sighs and stares at the bulkhead.", weight: 1, moraleMax: 40, color: 'warn' },
+  { text: "{name}: 'When's the last time we got paid on time?'", weight: 1.2, moraleMax: 30, color: 'warn' },
+  { text: "{name}: 'I didn't sign up for this...'", weight: 1.5, moraleMax: 20, color: 'bad' },
+];

@@ -14,7 +14,8 @@
       "Bash(node:*)",
       "Bash(npm run:*)",
       "Bash(grep -E '^d|png$')",
-      "Bash(echo \"exit: $?\")"
+      "Bash(echo \"exit: $?\")",
+      "Bash(grep -r \"scene.start\\\\|this.scene.start\" /c/Development/Code/paul/game2/src/scenes/*.ts)"
     ]
   }
 }

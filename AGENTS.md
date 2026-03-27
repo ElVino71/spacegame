@@ -33,7 +33,7 @@ BootScene → GalaxyMapScene ↔ SystemScene ↔ PlanetSurfaceScene
           TerminalScene
 ```
 
-All scene-to-scene transitions go through **TransitionScene** (warp/land/takeoff/dock/undock animations). Every scene calls `frame.enterGameplay()` on create and manages its own panel/nav setup.
+All scene-to-scene transitions go through **TransitionScene** (warp/land/takeoff/dock/undock animations). Every scene calls `frame.enterGameplay()` on create and manages its own panel/nav setup. `enterGameplay()` resets the panel and center overlay, so scenes that need the left panel must call `showPanel()` after it.
 
 ### Scene Integration Pattern
 
@@ -54,8 +54,7 @@ shutdown() {
 // Scenes with center overlay (e.g. StationScene):
 create() {
   const frame = getFrameManager();
-  frame.enterGameplay('Title');
-  frame.hidePanel();
+  frame.enterGameplay('Title');   // panel already hidden by enterGameplay()
   frame.showCenterOverlay();
   frame.setCenterContent(html);     // full-width HTML UI
 }
@@ -86,7 +85,7 @@ CSS uses `--frame-tile-size: 96px` for tile display and `--frame-content-inset: 
 
 ### Ship Interior Tiles
 
-The Ship Interior scene is a side-view cross-section with rooms connected by walkable corridors. Player walks left/right on the floor only (1D horizontal movement). Each room has themed 32×32 tile backgrounds displayed at 2× scale in Phaser:
+The Ship Interior scene is a side-view cross-section with rooms connected by walkable corridors. Rooms are 3 tiles tall (compact layout, vertically centered on screen). Player walks left/right on the floor only (1D horizontal movement). Crew members wander within their assigned rooms with simple walk animations. Each room has themed 32×32 tile backgrounds displayed at 2× scale in Phaser:
 
 - `scripts/generate-room-tiles.js` — 5 themes × 50 tiles each in `assets/tiles/rooms/{theme}/`:
   - `floor.png`, `wall.png`, `corridor.png` — structural tiles

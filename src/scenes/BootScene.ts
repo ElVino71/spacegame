@@ -60,6 +60,20 @@ export class BootScene extends Phaser.Scene {
       this.load.image(`fauna_${name}`, `assets/tiles/fauna/${name}.png`);
     }
 
+    // Load ruins interior tiles
+    const ruinsTileNames = [
+      'floor_1', 'floor_2', 'floor_3', 'wall',
+      'door_closed', 'door_open',
+      'trap', 'trap_triggered',
+      'treasure', 'treasure_open',
+      'lore', 'lore_read',
+      'rubble', 'stairs_up', 'stairs_down',
+      'encounter', 'encounter_cleared',
+    ];
+    for (const name of ruinsTileNames) {
+      this.load.image(`ruins_${name}`, `assets/tiles/ruins/${name}.png`);
+    }
+
     // Load room interior tiles (per theme)
     const themes = ['retro-scifi', 'biological', 'steampunk', 'military', 'alien'];
     const roomTileNames = [

@@ -395,6 +395,7 @@ export class FrameManager {
     this.showTopBar();
     this.showBottomBar();
     this.showChatter();
+    this.hidePanel();
     this.hideCenterOverlay();
     this.setSceneTitle(sceneTitle);
   }
