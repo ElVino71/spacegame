@@ -9,3 +9,4 @@ export * from './factions';
 export * from './names';
 export * from './misc';
 export * from './chatter';
+export * from './characters';

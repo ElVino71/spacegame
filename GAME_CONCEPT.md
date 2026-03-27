@@ -48,9 +48,8 @@ A 2D space exploration, trading, and combat game inspired by Starflight 2. The p
 - SPACE to interact with minerals/ruins/settlements
 - Animated takeoff transition when leaving (ESC)
 
-### 5. Ruins / Dungeons (Side-On 2D) — NOT YET IMPLEMENTED
+### 5. Ruins / Dungeons (Top-Down) — NOT YET IMPLEMENTED
 - Entered from planet surface when discovering ruins
-- Platformer-lite exploration of ancient structures
 - Puzzles, traps, loot, and lore fragments
 - Some ruins require specific equipment to access deeper areas
 - Boss encounters or guardians protecting valuable tech
@@ -262,8 +261,35 @@ A persistent HTML/CSS frame wraps the entire game canvas, providing a cockpit-li
 
 ---
 
+## Characters & Crew — IMPLEMENTED (Core), PARTIALLY IMPLEMENTED (Mechanics)
+
+### Crew System
+- [x] Crew members with stats (piloting, engineering, combat, science, charisma)
+- [x] Hire at stations via recruiter NPC
+- [x] Assign crew to ship rooms
+- [x] Salary costs deducted per jump
+- [x] Ship class determines crew capacity (scout: 2, explorer: 3, freighter: 4, corvette: 5, gunship: 6)
+- [x] Crew stats provide bonuses to ship speed, jump range, and sensor range
+- [ ] Room reassignment UI for crew members
+- [ ] Morale system (events, crew interaction)
+- [ ] Crew-driven events and chatter
+- [ ] Combat and repair bonuses from crew
+
+### Character Portraits
+- [x] 3×3 grid of 32×32 tiles composited into 96×96 portraits
+- [x] Mix-and-match: face shape, eyes, mouth, hair, ears, chin, accessories
+- [x] Drawn in neutral tones, tinted at runtime for skin/hair color
+- [x] Seeded per character for deterministic persistence
+
+### Station NPCs
+- [x] Each station has 3-5 named NPCs (merchant, mechanic, recruiter, etc.)
+- [x] Seeded per station — same NPCs every visit
+- [x] Faction-influenced names and appearance
+- [x] Portraits displayed in station UI alongside services
+
+---
+
 ## Open Questions / Future Ideas
-- Crew recruitment and management?
 - Base building on planets?
 - Multiplayer / async elements?
 - Crafting system beyond ship modules?

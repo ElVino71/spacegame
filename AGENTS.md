@@ -153,4 +153,4 @@ I want claude to update the documents after each major step has been done, or mo
 I want claude to make a file for the current planned piece of work before the work starts, so if we run out of tokens, we can review this file
 to continue the work. Update this plan file as we continue, and clear it when its done, check if the @PLAN.md has anything in that is unfinished before
 we start anything new.
-Use and update @GAME_CONCEPTS.md to check of key design goals.
+Use and update @GAME_CONCEPT.md to check of key design goals.

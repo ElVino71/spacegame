@@ -318,7 +318,7 @@ export class SystemScene extends Phaser.Scene {
   }
 
   private handleShipMovement(dt: number): void {
-    const speed = getShipSpeed(this.state.player.ship);
+    const speed = getShipSpeed(this.state.player.ship, this.state.player.crew || []);
     const acceleration = speed * 1.5;
     const maxSpeed = speed;
     const rotSpeed = 3.5;

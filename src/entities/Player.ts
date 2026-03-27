@@ -1,4 +1,6 @@
 import { ShipData, SHIP_TEMPLATES, STARTER_MODULES, STARTER_SHIP_NAME, STARTER_CREDITS, STARTER_SHIP_CLASS, ShipModule } from './Ship';
+import { CrewMember } from './Character';
+import { CREW_CAPACITY } from '../data/characters';
 
 export interface CargoItem {
   id: string;
@@ -17,6 +19,7 @@ export interface PlayerData {
   discoveredSystems: Set<number>;
   visitedSystems: Set<number>;
   loreFragments: string[];
+  crew: CrewMember[];
 }
 
 export function createNewPlayer(): PlayerData {
@@ -55,17 +58,34 @@ export function createNewPlayer(): PlayerData {
     discoveredSystems: new Set([0]),
     visitedSystems: new Set([0]),
     loreFragments: [],
+    crew: [],
   };
 }
 
-export function getShipSpeed(ship: ShipData): number {
-  const engine = ship.slots.find(s => s.type === 'engine' && s.module)?.module;
-  return engine?.stats.speed ?? 50;
+export function getCrewCapacity(ship: ShipData): number {
+  return CREW_CAPACITY[ship.class] || 0;
 }
 
-export function getJumpRange(ship: ShipData): number {
+export function getShipSpeed(ship: ShipData, crew: CrewMember[] = []): number {
   const engine = ship.slots.find(s => s.type === 'engine' && s.module)?.module;
-  return engine?.stats.jumpRange ?? 40;
+  const baseSpeed = engine?.stats.speed ?? 50;
+
+  // Pilot in bridge bonus
+  const pilot = crew.find(c => c.role === 'pilot' && (!c.assignedRoom || c.assignedRoom === 'bridge'));
+  const pilotBonus = pilot ? (pilot.stats.piloting * 0.05) : 0; // up to 50% bonus
+  
+  return baseSpeed * (1 + pilotBonus);
+}
+
+export function getJumpRange(ship: ShipData, crew: CrewMember[] = []): number {
+  const engine = ship.slots.find(s => s.type === 'engine' && s.module)?.module;
+  const baseRange = engine?.stats.jumpRange ?? 40;
+
+  // Navigator bonus
+  const nav = crew.find(c => c.role === 'navigator');
+  const navBonus = nav ? (nav.stats.piloting * 0.03) : 0; // up to 30% bonus
+
+  return baseRange * (1 + navBonus);
 }
 
 export function getCargoCapacity(ship: ShipData): number {
@@ -78,9 +98,15 @@ export function getCargoUsed(cargo: CargoItem[]): number {
   return cargo.reduce((total, item) => total + item.quantity, 0);
 }
 
-export function getSensorRange(ship: ShipData): number {
+export function getSensorRange(ship: ShipData, crew: CrewMember[] = []): number {
   const sensor = ship.slots.find(s => s.type === 'sensor' && s.module)?.module;
-  return sensor?.stats.range ?? 100;
+  const baseRange = sensor?.stats.range ?? 100;
+
+  // Scientist bonus
+  const scientist = crew.find(c => c.role === 'scientist');
+  const sciBonus = scientist ? (scientist.stats.science * 0.05) : 0;
+
+  return baseRange * (1 + sciBonus);
 }
 
 export function getShieldCapacity(ship: ShipData): number {

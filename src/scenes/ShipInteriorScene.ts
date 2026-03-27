@@ -8,6 +8,7 @@ import { getAudioManager } from '../audio/AudioManager';
 import { getChatterSystem } from '../systems/ChatterSystem';
 import { TRADE_GOODS } from '../data/trade';
 import { SeededRandom, hashString } from '../utils/SeededRandom';
+import { PortraitRenderer } from '../ui/PortraitRenderer';
 
 const PANEL_WIDTH = 340;
 const TILE_SIZE = 32;
@@ -46,6 +47,7 @@ export class ShipInteriorScene extends Phaser.Scene {
   private walkTimer = 0;
   private themeId = 'retro-scifi';
   private roomLabels: Phaser.GameObjects.Text[] = [];
+  private crewSprites: Phaser.GameObjects.Graphics[] = [];
 
   constructor() {
     super({ key: 'ShipInteriorScene' });
@@ -92,6 +94,9 @@ export class ShipInteriorScene extends Phaser.Scene {
 
     // Draw room labels
     this.drawRoomLabels();
+
+    // Create crew sprites
+    this.createCrewSprites();
 
     // Place player in bridge center
     const bridge = this.rooms[0];
@@ -619,6 +624,32 @@ export class ShipInteriorScene extends Phaser.Scene {
       html += `<div class="section">`;
       html += `<div class="section-title">${room.label}</div>`;
 
+      // Crew in this room
+      const crewInRoom = (this.state.player.crew || []).filter(c => {
+        const assigned = c.assignedRoom || 'bridge';
+        return assigned.toLowerCase() === room.type.toLowerCase();
+      });
+
+      if (crewInRoom.length > 0) {
+        for (const c of crewInRoom) {
+          html += `<div class="crew-card" style="display:flex; margin-bottom:10px; padding:10px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1);">`;
+          html += `<div style="margin-right:10px; border:1px solid var(--frame-border); background:rgba(0,0,0,0.3)">`;
+          html += PortraitRenderer.renderPortrait(c.portraitSeed, 48);
+          html += `</div>`;
+          html += `<div>`;
+          html += `<div style="font-size:12px; font-weight:bold;">${c.name}</div>`;
+          html += `<div style="font-size:9px; color:var(--frame-text-good); margin-bottom:3px;">${c.role.toUpperCase()}</div>`;
+          html += `<div style="display:grid; grid-template-columns: 1fr 1fr; gap:2px; font-size:8px; opacity:0.8;">`;
+          html += `<div>PIL: ${c.stats.piloting}</div><div>ENG: ${c.stats.engineering}</div>`;
+          html += `<div>COM: ${c.stats.combat}</div><div>SCI: ${c.stats.science}</div>`;
+          html += `</div>`;
+          html += `</div>`;
+          html += `</div>`;
+        }
+        html += `<div class="action">[ENTER] Manage Crew</div>`;
+        html += `</div><div class="section">`;
+      }
+
       if (room.type === 'bridge') {
         html += this.row('Ship', ship.name);
         html += this.row('Class', ship.class);
@@ -708,5 +739,57 @@ export class ShipInteriorScene extends Phaser.Scene {
         // TODO: cargo jettison UI
         break;
     }
+  }
+
+  private createCrewSprites(): void {
+    // Clear old sprites
+    this.crewSprites.forEach(s => s.destroy());
+    this.crewSprites = [];
+
+    const crew = this.state.player.crew || [];
+    const rng = new SeededRandom(hashString(this.state.player.ship.name) + 42);
+
+    for (const c of crew) {
+      const assigned = c.assignedRoom || 'bridge';
+      const room = this.rooms.find(r => r.type.toLowerCase() === assigned.toLowerCase()) || this.rooms[0];
+      
+      const sprite = this.add.graphics().setDepth(5);
+      
+      // Random position within room (not overlapping walls/corridors too much)
+      const xOffset = rng.int(20, room.widthPx - 20);
+      const wx = room.x + xOffset;
+      const wy = room.y + (FLOOR_Y_TILE * SCALED_TILE);
+      
+      this.drawCrewMember(sprite, wx, wy, c.role);
+      this.crewSprites.push(sprite);
+    }
+  }
+
+  private drawCrewMember(gfx: Phaser.GameObjects.Graphics, x: number, y: number, role: string): void {
+    gfx.clear();
+    
+    // Role color
+    let color = 0xcccccc;
+    switch (role.toLowerCase()) {
+      case 'pilot': color = 0x00ffff; break;
+      case 'engineer': color = 0xffaa00; break;
+      case 'gunner': color = 0xff3333; break;
+      case 'scientist': color = 0x33ff33; break;
+      case 'medic': color = 0xffffff; break;
+      case 'navigator': color = 0xaaaaff; break;
+    }
+
+    // Stick figure
+    gfx.lineStyle(2, color, 1);
+    // Body
+    gfx.lineBetween(x, y - 24, x, y - 10);
+    // Arms
+    gfx.lineBetween(x - 6, y - 20, x + 6, y - 20);
+    // Legs
+    gfx.lineBetween(x, y - 10, x - 5, y);
+    gfx.lineBetween(x, y - 10, x + 5, y);
+    // Head
+    gfx.fillStyle(color, 1);
+    gfx.fillCircle(x, y - 28, 4);
   }
 }

@@ -1,5 +1,6 @@
 import { PlayerData } from '../entities/Player';
 import { StarSystemData } from '../entities/StarSystem';
+import { CrewMember } from '../entities/Character';
 import { GameState, newGame } from '../GameState';
 
 const SAVE_KEY = 'starward_drift_save';
@@ -15,6 +16,7 @@ export interface SaveData {
     discoveredSystems: number[];
     visitedSystems: number[];
     loreFragments: string[];
+    crew?: CrewMember[];
   };
   galaxy: StarSystemData[];
 }
@@ -31,6 +33,7 @@ export function saveGame(state: GameState): void {
       discoveredSystems: Array.from(state.player.discoveredSystems),
       visitedSystems: Array.from(state.player.visitedSystems),
       loreFragments: state.player.loreFragments,
+      crew: state.player.crew || [],
     },
     galaxy: state.galaxy,
   };
@@ -52,6 +55,7 @@ export function loadGame(): GameState | null {
       ...data.player,
       discoveredSystems: new Set(data.player.discoveredSystems),
       visitedSystems: new Set(data.player.visitedSystems),
+      crew: data.player.crew || [],
     };
 
     return state;

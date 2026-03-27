@@ -1,14 +1,18 @@
 import Phaser from 'phaser';
 import { getGameState, GameState } from '../GameState';
-import { FACTION_NAMES } from '../utils/Constants';
+import { FACTION_NAMES } from '../data/factions';
 import { StationData } from '../entities/StarSystem';
-import { getCargoCapacity, getCargoUsed } from '../entities/Player';
+import { getCargoCapacity, getCargoUsed, getCrewCapacity } from '../entities/Player';
 import { SeededRandom } from '../utils/SeededRandom';
 import { getFrameManager } from '../ui/FrameManager';
 import { getAudioManager } from '../audio/AudioManager';
 import { getChatterSystem } from '../systems/ChatterSystem';
 import { TRADE_GOODS, TRADE_PREFIXES, ECONOMY_MODIFIERS, TradeGood } from '../data/trade';
+import { NPC_ROLES, CREW_ROLES } from '../data/characters';
 import { saveGame } from '../utils/SaveSystem';
+import { CharacterGenerator } from '../generation/CharacterGenerator';
+import { StationNPC, CrewMember } from '../entities/Character';
+import { PortraitRenderer } from '../ui/PortraitRenderer';
 
 interface MarketListing {
   good: TradeGood;
@@ -23,8 +27,10 @@ export class StationScene extends Phaser.Scene {
   private state!: GameState;
   private station!: StationData;
   private market: MarketListing[] = [];
+  private npcs: StationNPC[] = [];
+  private hirelings: CrewMember[] = [];
   private selectedIndex = 0;
-  private mode: 'menu' | 'market' | 'refuel' | 'repair' = 'menu';
+  private mode: 'menu' | 'market' | 'refuel' | 'repair' | 'recruitment' = 'menu';
 
   constructor() {
     super({ key: 'StationScene' });
@@ -40,6 +46,8 @@ export class StationScene extends Phaser.Scene {
     this.mode = 'menu';
 
     this.generateMarket();
+    this.npcs = CharacterGenerator.generateStationNPCs(this.state.player.currentSystemId, this.station.name, this.state.seed);
+    this.generateHirelings();
 
     const frame = getFrameManager();
     frame.enterGameplay(`Station: ${this.station.name}`);
@@ -110,6 +118,18 @@ export class StationScene extends Phaser.Scene {
     });
   }
 
+  private generateHirelings(): void {
+    const system = this.state.getCurrentSystem();
+    const rng = new SeededRandom(system.id * 888 + this.state.seed);
+    const hasRecruiter = this.npcs.some(n => n.role === 'recruiter');
+    const count = hasRecruiter ? rng.int(2, 3) : rng.int(0, 1);
+    
+    this.hirelings = [];
+    for (let i = 0; i < count; i++) {
+      this.hirelings.push(CharacterGenerator.generateCrewMember(rng.fork(i), this.station.factionIndex));
+    }
+  }
+
   // ─── RENDER ─────────────────────────────────────────────
 
   private renderCenter(): void {
@@ -150,6 +170,8 @@ export class StationScene extends Phaser.Scene {
       html += this.renderRefuel();
     } else if (this.mode === 'repair') {
       html += this.renderRepair();
+    } else if (this.mode === 'recruitment') {
+      html += this.renderRecruitment();
     }
 
     // Cargo hold
@@ -168,23 +190,98 @@ export class StationScene extends Phaser.Scene {
   }
 
   private renderMenu(): string {
+    const services = [
+      { id: 'market', label: 'Trade Goods', desc: 'Buy and sell commodities', npc: this.npcs.find(n => n.role === 'merchant') },
+      { id: 'refuel', label: 'Refuel Ship', desc: 'Replenish fuel reserves', npc: this.npcs.find(n => n.role === 'bartender' || n.role === 'merchant') },
+      { id: 'repair', label: 'Repair Hull', desc: 'Fix structural damage', npc: this.npcs.find(n => n.role === 'mechanic') },
+    ];
+
+    const recruiter = this.npcs.find(n => n.role === 'recruiter');
+    if (recruiter || this.hirelings.length > 0) {
+      services.push({ id: 'recruitment', label: 'Recruitment', desc: 'Hire new crew members', npc: recruiter });
+    }
+
     const items = [
-      { label: 'Trade Goods', desc: 'Buy and sell commodities' },
-      { label: 'Refuel Ship', desc: 'Replenish fuel reserves' },
-      { label: 'Repair Hull', desc: 'Fix structural damage' },
-      { label: 'Save & Exit', desc: 'Save progress and return to title' },
-      { label: 'Undock', desc: 'Return to system space' },
+      ...services,
+      { id: 'save', label: 'Save & Exit', desc: 'Save progress and return to title', npc: undefined },
+      { id: 'undock', label: 'Undock', desc: 'Return to system space', npc: undefined },
     ];
 
     let html = `<div class="center-section-title">Station Services</div>`;
     for (let i = 0; i < items.length; i++) {
+      const item = items[i];
       const sel = i === this.selectedIndex ? ' selected' : '';
       html += `<div class="menu-item${sel}" data-menu-idx="${i}">`;
-      html += `${sel ? '&#9654; ' : ''}${items[i].label}`;
-      html += `<div class="menu-desc">${items[i].desc}</div>`;
+      
+      html += `<div style="display:flex; align-items:center;">`;
+      if (item.npc) {
+        html += `<div style="margin-right:10px; border:1px solid var(--frame-border); background:rgba(0,0,0,0.3)">`;
+        html += PortraitRenderer.renderPortrait(item.npc.portraitSeed, 48);
+        html += `</div>`;
+      }
+      
+      html += `<div>`;
+      html += `<div class="menu-label">${sel ? '&#9654; ' : ''}${item.label}</div>`;
+      if (item.npc) {
+        html += `<div class="menu-npc-name" style="font-size:10px; color:var(--frame-text-good)">${item.npc.name} (${item.npc.role})</div>`;
+      }
+      html += `<div class="menu-desc">${item.desc}</div>`;
+      html += `</div>`;
+      
+      html += `</div>`;
       html += `</div>`;
     }
     html += `<div class="controls-hint">UP/DOWN to navigate &bull; ENTER to select</div>`;
+    return html;
+  }
+
+  private renderRecruitment(): string {
+    let html = `<div class="center-section-title">Crew Recruitment</div>`;
+    
+    if (this.hirelings.length === 0) {
+      html += `<div class="service-panel"><div class="row">No candidates available at this time.</div></div>`;
+    } else {
+      const capacity = getCrewCapacity(this.state.player.ship);
+      const currentCrew = (this.state.player.crew || []).length;
+      
+      html += `<div class="crew-capacity-info" style="margin-bottom:10px; font-size:12px;">Ship Capacity: ${currentCrew} / ${capacity}</div>`;
+
+      for (let i = 0; i < this.hirelings.length; i++) {
+        const c = this.hirelings[i];
+        const sel = i === this.selectedIndex ? ' selected' : '';
+        const canAfford = this.state.player.credits >= 500; // Sign-on bonus
+        
+        html += `<div class="menu-item${sel}" data-hire-idx="${i}" style="display:flex; padding:10px; margin-bottom:5px;">`;
+        html += `<div style="margin-right:15px; border:1px solid var(--frame-border)">`;
+        html += PortraitRenderer.renderPortrait(c.portraitSeed, 80);
+        html += `</div>`;
+        
+        html += `<div style="flex:1">`;
+        html += `<div class="menu-label" style="font-size:16px">${c.name}</div>`;
+        html += `<div style="color:var(--frame-text-good); font-size:12px; margin-bottom:4px;">${c.role.toUpperCase()}</div>`;
+        html += `<div class="menu-desc" style="font-size:11px; font-style:italic; margin-bottom:8px;">"${c.bio}"</div>`;
+        
+        html += `<div style="display:grid; grid-template-columns: 1fr 1fr; gap:5px; font-size:10px;">`;
+        html += `<div>PIL: ${c.stats.piloting}</div>`;
+        html += `<div>ENG: ${c.stats.engineering}</div>`;
+        html += `<div>COM: ${c.stats.combat}</div>`;
+        html += `<div>SCI: ${c.stats.science}</div>`;
+        html += `</div>`;
+        html += `</div>`;
+
+        html += `<div style="text-align:right; width:100px;">`;
+        html += `<div style="font-size:12px; margin-bottom:5px;">Bonus: <span class="${canAfford ? 'good' : 'bad'}">500 CR</span></div>`;
+        html += `<div style="font-size:12px;">Salary: ${c.salary} CR</div>`;
+        if (sel) {
+          html += `<div class="action-btn" style="margin-top:10px; background:var(--frame-bg-active); padding:4px; font-size:10px; text-align:center;">[ENTER] HIRE</div>`;
+        }
+        html += `</div>`;
+
+        html += `</div>`;
+      }
+    }
+    
+    html += `<div class="controls-hint">UP/DOWN to select &bull; ENTER to hire &bull; ESC back</div>`;
     return html;
   }
 
@@ -262,6 +359,16 @@ export class StationScene extends Phaser.Scene {
       });
     });
 
+    // Hireling clicks
+    el.querySelectorAll('.menu-item[data-hire-idx]').forEach(item => {
+      item.addEventListener('click', () => {
+        const idx = parseInt((item as HTMLElement).dataset.hireIdx!, 10);
+        this.selectedIndex = idx;
+        getAudioManager().playSfx('ui_confirm');
+        this.tryHire(this.hirelings[idx]);
+      });
+    });
+
     // Market row clicks
     el.querySelectorAll('tr[data-market-idx]').forEach(row => {
       row.addEventListener('click', () => {
@@ -277,7 +384,12 @@ export class StationScene extends Phaser.Scene {
 
   private navigate(dir: number): void {
     let max = 5;
+    if (this.mode === 'menu') {
+      const recruiter = this.npcs.find(n => n.role === 'recruiter');
+      max = (recruiter || this.hirelings.length > 0) ? 6 : 5;
+    }
     if (this.mode === 'market') max = this.market.length;
+    if (this.mode === 'recruitment') max = this.hirelings.length;
     if (max === 0) return;
     this.selectedIndex = (this.selectedIndex + dir + max) % max;
     getAudioManager().playSfx('ui_navigate');
@@ -287,21 +399,34 @@ export class StationScene extends Phaser.Scene {
   private select(): void {
     getAudioManager().playSfx('ui_confirm');
     if (this.mode === 'menu') {
-      switch (this.selectedIndex) {
+      const recruiter = this.npcs.find(n => n.role === 'recruiter');
+      const hasRecruitOption = (recruiter || this.hirelings.length > 0);
+      
+      // Determine what was clicked based on index
+      // 0: market, 1: refuel, 2: repair, 3: recruitment (if exists), 4: save, 5: undock
+      let idx = this.selectedIndex;
+      if (!hasRecruitOption && idx >= 3) idx += 1;
+
+      switch (idx) {
         case 0: this.mode = 'market'; this.selectedIndex = 0; break;
         case 1: this.mode = 'refuel'; break;
         case 2: this.mode = 'repair'; this.selectedIndex = 0; this.repairHull(); return;
-        case 3: 
+        case 3: this.mode = 'recruitment'; this.selectedIndex = 0; break;
+        case 4: 
           saveGame(this.state);
           this.scene.start('TitleScene');
           return;
-        case 4: this.undock(); return;
+        case 5: this.undock(); return;
       }
     } else if (this.mode === 'market') {
       this.tryBuy();
     } else if (this.mode === 'repair') {
       this.repairHull();
       return;
+    } else if (this.mode === 'recruitment') {
+      if (this.hirelings[this.selectedIndex]) {
+        this.tryHire(this.hirelings[this.selectedIndex]);
+      }
     }
     this.renderCenter();
   }
@@ -401,6 +526,38 @@ export class StationScene extends Phaser.Scene {
     this.state.player.credits -= cost;
     ship.hull.current = ship.hull.max;
     getAudioManager().playSfx('repair');
+    this.renderCenter();
+  }
+
+  private tryHire(candidate: CrewMember): void {
+    const capacity = getCrewCapacity(this.state.player.ship);
+    if (!this.state.player.crew) this.state.player.crew = [];
+    if (this.state.player.crew.length >= capacity) {
+      getFrameManager().showAlert('Crew capacity full!', 'danger');
+      getAudioManager().playSfx('ui_deny');
+      return;
+    }
+
+    const cost = 500;
+    if (this.state.player.credits < cost) {
+      getFrameManager().showAlert('Not enough credits!', 'danger');
+      getAudioManager().playSfx('ui_deny');
+      return;
+    }
+
+    this.state.player.credits -= cost;
+    this.state.player.crew.push(candidate);
+    this.hirelings = this.hirelings.filter(h => h.id !== candidate.id);
+
+    getFrameManager().showAlert(`${candidate.name} joined the crew!`, 'info');
+    getAudioManager().playSfx('ui_confirm');
+    
+    if (this.hirelings.length === 0) {
+      this.mode = 'menu';
+      this.selectedIndex = 0;
+    } else {
+      this.selectedIndex = Math.min(this.selectedIndex, this.hirelings.length - 1);
+    }
     this.renderCenter();
   }
 

@@ -334,7 +334,7 @@ export class GalaxyMapScene extends Phaser.Scene {
         this.row('Fuel', `${Math.floor(fuel.current)}/${fuel.max}`) +
         this.bar('fuel', fuelPct) +
         this.row('Shields', `${getShieldCapacity(ship)}`) +
-        this.row('Speed', `${getShipSpeed(ship)}`) +
+        this.row('Speed', `${getShipSpeed(ship, this.state.player.crew || []).toFixed(0)}`) +
         this.row('Cargo', `${cargoUsed}/${cargoMax}`) +
         this.bar('cargo', cargoPct) +
         this.row('Credits', `${this.state.player.credits} CR`, 'good');
@@ -352,7 +352,7 @@ export class GalaxyMapScene extends Phaser.Scene {
         this.row('Planets', `${current.planets.length}`) +
         this.row('Belts', `${current.asteroidBelts.length}`) +
         this.row('Station', current.station ? current.station.name : 'None') +
-        this.row('Jump Rng', `${getJumpRange(ship)}`);
+        this.row('Jump Rng', `${getJumpRange(ship, this.state.player.crew || []).toFixed(1)}`);
     }
 
     // Target section

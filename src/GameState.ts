@@ -46,6 +46,24 @@ export class GameState {
 
     if (this.player.ship.fuel.current < fuelCost) return false;
 
+    // Deduct salary
+    const crew = this.player.crew || [];
+    const totalSalary = crew.reduce((sum, c) => sum + c.salary, 0);
+    this.player.credits -= totalSalary;
+    
+    // Low credits = morale drop
+    if (this.player.credits < 0) {
+      this.player.credits = 0;
+      for (const c of crew) {
+        c.morale = Math.max(0, c.morale - 10);
+      }
+    } else {
+      // Small morale boost on successful jump if paid
+      for (const c of crew) {
+        c.morale = Math.min(100, c.morale + 1);
+      }
+    }
+
     this.player.ship.fuel.current -= fuelCost;
     this.player.currentSystemId = targetId;
     this.visitSystem(targetId);

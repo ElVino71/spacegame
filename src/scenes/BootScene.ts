@@ -84,6 +84,18 @@ export class BootScene extends Phaser.Scene {
         this.load.image(`room_${theme}_${name}`, `assets/tiles/rooms/${theme}/${name}.png`);
       }
     }
+
+    // Load portrait tiles
+    const portraitParts = ['face', 'mouth', 'hair_top', 'hair_left', 'hair_right', 'ear_left', 'ear_right', 'chin_left', 'chin_right'];
+    const partCounts: Record<string, number> = {
+      face: 6, mouth: 4, hair_top: 8, hair_left: 8, hair_right: 8, ear_left: 4, ear_right: 4, chin_left: 4, chin_right: 4
+    };
+    for (const part of portraitParts) {
+      const count = partCounts[part];
+      for (let i = 0; i < count; i++) {
+        this.load.image(`portrait_${part}_${i}`, `assets/tiles/portraits/${part}/${part}_${i}.png`);
+      }
+    }
   }
 
   create(): void {
