@@ -91,6 +91,19 @@ A 2D space exploration, trading, and combat game inspired by Starflight 2. The p
 - Docking: Station walls close in with guide lights (~1.4s)
 - Undocking: Reverse dock animation (~1.4s)
 
+### 5b. Settlements (Top-Down) — IMPLEMENTED (Basic)
+- Entered from planet surface when pressing SPACE on settlement tile
+- 32×32 procedurally generated town map with grid-based road layout
+- Seeded from planet data for deterministic layout per planet
+- Tile types: roads, road crossings, plazas, building walls/floors, doors, fences, lamps
+- 1-2 shops per settlement: trade goods shop and/or ship module shop
+- Trade shops: buy/sell subset of trade goods (6-8 items, slightly higher prices than stations)
+- Module shops: buy and install ship modules into empty slots (4-6 modules from full catalog)
+- Player walks with person sprite on roads and plazas
+- SPACE on shop door opens shop overlay (center overlay like station interface)
+- ESC closes shop or exits settlement back to planet surface
+- Settlement-specific atmospheric chatter
+
 ### NOT YET IMPLEMENTED: Shipyard / Ship Modification Screen
 - Dedicated screen for buying/selling/swapping ship modules
 - Visual preview of ship cross-section with modules

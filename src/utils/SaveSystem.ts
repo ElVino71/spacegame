@@ -1,4 +1,4 @@
-import { PlayerData } from '../entities/Player';
+import { PlayerData, DiscoveredLore } from '../entities/Player';
 import { StarSystemData } from '../entities/StarSystem';
 import { CrewMember } from '../entities/Character';
 import { GameState, newGame } from '../GameState';
@@ -15,7 +15,7 @@ export interface SaveData {
     reputation: PlayerData['reputation'];
     discoveredSystems: number[];
     visitedSystems: number[];
-    loreFragments: string[];
+    loreFragments: DiscoveredLore[] | string[];
     crew?: CrewMember[];
   };
   galaxy: StarSystemData[];
@@ -51,11 +51,17 @@ export function loadGame(): GameState | null {
     // Reconstruct GameState
     const state = newGame(data.seed);
     state.galaxy = data.galaxy;
+    // Migrate old string[] lore to DiscoveredLore[] (old saves lose lore data)
+    const rawLore = data.player.loreFragments || [];
+    const loreFragments: DiscoveredLore[] = rawLore.length > 0 && typeof rawLore[0] === 'string'
+      ? [] : rawLore as DiscoveredLore[];
+
     state.player = {
       ...data.player,
       discoveredSystems: new Set(data.player.discoveredSystems),
       visitedSystems: new Set(data.player.visitedSystems),
       crew: data.player.crew || [],
+      loreFragments,
     };
 
     return state;

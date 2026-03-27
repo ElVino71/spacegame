@@ -1,3 +1,3 @@
 # Plan
 
-No active work in progress.
+No active work items.

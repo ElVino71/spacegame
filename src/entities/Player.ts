@@ -1,6 +1,15 @@
 import { ShipData, SHIP_TEMPLATES, STARTER_MODULES, STARTER_SHIP_NAME, STARTER_CREDITS, STARTER_SHIP_CLASS, ShipModule } from './Ship';
 import { CrewMember } from './Character';
 import { CREW_CAPACITY } from '../data/characters';
+import { LoreFragment } from '../data/ruins';
+
+export interface DiscoveredLore extends LoreFragment {
+  discoveredAt: {
+    systemName: string;
+    planetName: string;
+    timestamp: number; // Date.now() when discovered
+  };
+}
 
 export interface CargoItem {
   id: string;
@@ -18,7 +27,7 @@ export interface PlayerData {
   reputation: Record<number, number>; // factionIndex -> -100 to 100
   discoveredSystems: Set<number>;
   visitedSystems: Set<number>;
-  loreFragments: string[];
+  loreFragments: DiscoveredLore[];
   crew: CrewMember[];
 }
 

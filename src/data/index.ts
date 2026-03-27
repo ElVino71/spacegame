@@ -11,3 +11,4 @@ export * from './misc';
 export * from './chatter';
 export * from './characters';
 export * from './ruins';
+export * from './settlements';

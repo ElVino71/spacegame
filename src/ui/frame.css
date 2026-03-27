@@ -263,6 +263,68 @@ body {
 .frame-alert-danger { color: var(--frame-bad); }
 
 /* ============================================================
+   MODAL OVERLAY (dismissible popup for lore, etc.)
+   ============================================================ */
+
+.frame-modal-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 1500;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.frame-modal-overlay.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.frame-modal {
+  max-width: 500px;
+  width: 80%;
+  padding: 24px 28px;
+  border: 1px solid var(--frame-accent-primary);
+  background: var(--frame-bg-panel);
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.5), 0 0 4px var(--frame-accent-primary);
+}
+
+.frame-modal-title {
+  font-family: var(--frame-font-primary);
+  font-size: 14px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--frame-accent-primary);
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--frame-border-color);
+  padding-bottom: 8px;
+}
+
+.frame-modal-body {
+  font-family: var(--frame-font-primary);
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--frame-text-primary);
+  margin-bottom: 16px;
+  white-space: pre-wrap;
+}
+
+.frame-modal-hint {
+  font-family: var(--frame-font-primary);
+  font-size: 10px;
+  letter-spacing: 1px;
+  color: var(--frame-text-muted);
+  text-align: center;
+}
+
+/* ============================================================
    BOTTOM BAR
    ============================================================ */
 
@@ -602,6 +664,48 @@ body {
 
 .frame-center-content .market-table td.good-name {
   color: var(--frame-text-primary);
+}
+
+.frame-center-content .market-table td.market-actions {
+  white-space: nowrap;
+  padding: 4px 4px;
+}
+
+.frame-center-content .market-btn {
+  display: inline-block;
+  width: 24px;
+  height: 22px;
+  line-height: 20px;
+  text-align: center;
+  font-size: 14px;
+  font-weight: bold;
+  border: 1px solid var(--frame-border-color);
+  background: color-mix(in srgb, var(--frame-bg-primary) 80%, transparent);
+  color: var(--frame-text-primary);
+  cursor: pointer;
+  margin: 0 1px;
+  padding: 0;
+  font-family: inherit;
+}
+
+.frame-center-content .market-btn:hover:not(.disabled) {
+  background: var(--frame-border-glow);
+  color: var(--frame-accent-primary);
+}
+
+.frame-center-content .market-btn.buy-btn:hover:not(.disabled) {
+  border-color: var(--frame-good);
+  color: var(--frame-good);
+}
+
+.frame-center-content .market-btn.sell-btn:hover:not(.disabled) {
+  border-color: var(--frame-bad);
+  color: var(--frame-bad);
+}
+
+.frame-center-content .market-btn.disabled {
+  opacity: 0.3;
+  cursor: default;
 }
 
 /* Section title */

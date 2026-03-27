@@ -25,9 +25,22 @@ export class TerminalScene extends Phaser.Scene {
   private currentTypingLine: { text: string; color: string; index: number } | null = null;
   private typingTimer: Phaser.Time.TimerEvent | null = null;
   private isTyping = false;
+  private returnScene: string = 'ShipInteriorScene';
+  private returnData: Record<string, unknown> = {};
 
   constructor() {
     super({ key: 'TerminalScene' });
+  }
+
+  init(data?: { returnScene?: string; stationData?: unknown }): void {
+    if (data?.returnScene) {
+      this.returnScene = data.returnScene;
+      this.returnData = data.returnScene === 'StationScene' && data.stationData
+        ? { station: data.stationData } : {};
+    } else {
+      this.returnScene = 'ShipInteriorScene';
+      this.returnData = {};
+    }
   }
 
   create(): void {
@@ -42,9 +55,9 @@ export class TerminalScene extends Phaser.Scene {
     getChatterSystem().stop();
     frame.setNav([
       { id: 'terminal', label: 'Terminal', active: true },
-      { id: 'ship', label: 'Ship', shortcut: 'ESC' },
+      { id: 'back', label: this.returnScene === 'StationScene' ? 'Station' : 'Ship', shortcut: 'ESC' },
     ], (id) => {
-      if (id === 'ship') this.scene.start('ShipInteriorScene');
+      if (id === 'back') this.scene.start(this.returnScene, this.returnData);
     });
 
     // Update bottom bar
@@ -103,7 +116,7 @@ export class TerminalScene extends Phaser.Scene {
     // Keyboard input
     this.input.keyboard!.on('keydown', (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        this.scene.start('ShipInteriorScene');
+        this.scene.start(this.returnScene, this.returnData);
         return;
       }
       if (event.key === 'Enter') {
@@ -253,7 +266,7 @@ export class TerminalScene extends Phaser.Scene {
         this.updateOutput();
         break;
       case 'exit':
-        this.scene.start('ShipInteriorScene');
+        this.scene.start(this.returnScene, this.returnData);
         break;
       case 'hello':
       case 'hi':
@@ -424,18 +437,53 @@ export class TerminalScene extends Phaser.Scene {
     }
   }
 
+  private formatDate(timestamp: number): string {
+    const d = new Date(timestamp);
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+  }
+
   private cmdCodex(args: string[]): void {
     const frags = this.state.player.loreFragments;
 
     if (args[0] === 'list' || !args[0]) {
       this.printLine('=== CODEX ===', '#00aaff');
+      this.printLine(`  ${frags.length} fragment${frags.length !== 1 ? 's' : ''} discovered`, '#666666');
+      this.printLine('');
       if (frags.length === 0) {
         this.printLine('  No lore fragments discovered yet.');
         this.printLine('  Explore ruins to find ancient knowledge.');
       } else {
-        for (let i = 0; i < frags.length; i++) {
-          this.printLine(`  [${i + 1}] ${frags[i].slice(0, 60)}...`);
+        // Group by category
+        const categories = ['history', 'technology', 'warning', 'poetry', 'record'] as const;
+        for (const cat of categories) {
+          const catFrags = frags.filter(f => f.category === cat);
+          if (catFrags.length === 0) continue;
+          this.printLine(`  [${cat.toUpperCase()}]`, '#ffcc00');
+          for (let i = 0; i < catFrags.length; i++) {
+            const idx = frags.indexOf(catFrags[i]) + 1;
+            const loc = catFrags[i].discoveredAt;
+            const where = loc ? ` — ${loc.planetName}, ${loc.systemName}` : '';
+            this.printLine(`    ${idx}. ${catFrags[i].title}${where}`, undefined);
+          }
         }
+        this.printLine('');
+        this.printLine('  Use "codex <number>" to read a fragment.', '#666666');
+      }
+    } else {
+      const idx = parseInt(args[0]);
+      if (isNaN(idx) || idx < 1 || idx > frags.length) {
+        this.printLine(`Invalid entry. Use 1-${frags.length}.`, '#ff6644');
+      } else {
+        const frag = frags[idx - 1];
+        this.printLine(`=== ${frag.title.toUpperCase()} ===`, '#00aaff');
+        this.printLine(`  Category: ${frag.category}`, '#666666');
+        if (frag.discoveredAt) {
+          this.printLine(`  Found in ruins on ${frag.discoveredAt.planetName}, ${frag.discoveredAt.systemName} system`, '#666666');
+          this.printLine(`  Recovered: ${this.formatDate(frag.discoveredAt.timestamp)}`, '#666666');
+        }
+        this.printLine('');
+        this.printLine(`  "${frag.text}"`);
       }
     }
   }

@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { getFrameManager } from '../ui/FrameManager';
 import { getGameState } from '../GameState';
 import { IDLE_BANTER, SYSTEM_CHATTER, SURFACE_CHATTER, STATION_CHATTER, CREW_CHATTER, ChatterEntry, CrewChatterTemplate } from '../data/chatter';
+import { SETTLEMENT_CHATTER } from '../data/settlements';
 
 export class ChatterSystem {
   private static instance: ChatterSystem | null = null;
@@ -61,6 +62,8 @@ export class ChatterSystem {
       pool.push(...SURFACE_CHATTER);
     } else if (sceneKey === 'StationScene') {
       pool.push(...STATION_CHATTER);
+    } else if (sceneKey === 'SettlementScene') {
+      pool.push(...SETTLEMENT_CHATTER);
     }
 
     // Add any extra scene-specific chatter lines

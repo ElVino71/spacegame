@@ -67,8 +67,22 @@ export class ShipInteriorScene extends Phaser.Scene {
   private crewManageMode = false;
   private crewManageIndex = 0;
 
+  private returnScene: string = 'SystemScene';
+  private returnData: Record<string, unknown> = {};
+
   constructor() {
     super({ key: 'ShipInteriorScene' });
+  }
+
+  init(data?: { returnScene?: string; stationData?: unknown }): void {
+    if (data?.returnScene) {
+      this.returnScene = data.returnScene;
+      this.returnData = data.returnScene === 'StationScene' && data.stationData
+        ? { station: data.stationData } : {};
+    } else {
+      this.returnScene = 'SystemScene';
+      this.returnData = {};
+    }
   }
 
   create(): void {
@@ -82,15 +96,24 @@ export class ShipInteriorScene extends Phaser.Scene {
     const frame = getFrameManager();
     frame.enterGameplay('Ship Interior');
     frame.showPanel(PANEL_WIDTH);
-    frame.setNav([
+    const isStation = this.returnScene === 'StationScene';
+    const navItems: { id: string; label: string; active?: boolean; shortcut?: string }[] = [
       { id: 'ship', label: 'Ship', active: true },
-      { id: 'system', label: 'System', shortcut: 'TAB' },
-      { id: 'terminal', label: 'Terminal', shortcut: 'T' },
-      { id: 'map', label: 'Galaxy Map', shortcut: 'M' },
-    ], (id) => {
+    ];
+    if (isStation) {
+      navItems.push({ id: 'station', label: 'Station', shortcut: 'TAB' });
+    } else {
+      navItems.push({ id: 'system', label: 'System', shortcut: 'TAB' });
+    }
+    navItems.push({ id: 'terminal', label: 'Terminal', shortcut: 'T' });
+    if (!isStation) {
+      navItems.push({ id: 'map', label: 'Galaxy Map', shortcut: 'M' });
+    }
+    frame.setNav(navItems, (id) => {
       switch (id) {
         case 'system': this.scene.start('SystemScene'); break;
-        case 'terminal': this.scene.start('TerminalScene'); break;
+        case 'station': this.scene.start('StationScene', this.returnData); break;
+        case 'terminal': this.scene.start('TerminalScene', { returnScene: this.returnScene, stationData: this.returnData.station }); break;
         case 'map': this.scene.start('GalaxyMapScene'); break;
       }
     });
@@ -146,13 +169,16 @@ export class ShipInteriorScene extends Phaser.Scene {
 
     this.input.keyboard!.on('keydown-TAB', (e: KeyboardEvent) => {
       e.preventDefault();
-      if (!this.crewManageMode) this.scene.start('SystemScene');
+      if (!this.crewManageMode) {
+        if (isStation) this.scene.start('StationScene', this.returnData);
+        else this.scene.start('SystemScene');
+      }
     });
     this.input.keyboard!.on('keydown-T', () => {
-      if (!this.crewManageMode) this.scene.start('TerminalScene');
+      if (!this.crewManageMode) this.scene.start('TerminalScene', { returnScene: this.returnScene, stationData: this.returnData.station });
     });
     this.input.keyboard!.on('keydown-M', () => {
-      if (!this.crewManageMode) this.scene.start('GalaxyMapScene');
+      if (!this.crewManageMode && !isStation) this.scene.start('GalaxyMapScene');
     });
     this.input.keyboard!.on('keydown-ENTER', () => this.interactWithRoom());
     this.input.keyboard!.on('keydown-ESC', () => {

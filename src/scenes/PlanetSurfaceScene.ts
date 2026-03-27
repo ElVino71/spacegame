@@ -407,7 +407,15 @@ export class PlanetSurfaceScene extends Phaser.Scene {
         text: 'DESCENDING INTO RUINS...',
       });
     } else if (tile.type === 'settlement') {
-      // TODO: Settlement/trade interface
+      getAudioManager().playSfx('land');
+      const frame = getFrameManager();
+      frame.hidePanel();
+      this.scene.start('TransitionScene', {
+        type: 'land',
+        targetScene: 'SettlementScene',
+        targetData: { planet: this.planet },
+        text: 'ENTERING SETTLEMENT...',
+      });
     }
   }
 

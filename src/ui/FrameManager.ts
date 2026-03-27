@@ -24,6 +24,7 @@ export class FrameManager {
   private statusCreditsEl!: HTMLElement;
   private centerOverlayEl!: HTMLElement;
   private chatterWindowEl!: HTMLElement;
+  private modalOverlayEl!: HTMLElement;
   private cornerEls: HTMLElement[] = [];
   private edgeEls!: HTMLElement[];
   private initialized = false;
@@ -105,6 +106,15 @@ export class FrameManager {
 
       <!-- Chatter Window (Bottom Right) -->
       <div class="frame-chatter-window"></div>
+
+      <!-- Modal overlay for lore/messages that need dismissal -->
+      <div class="frame-modal-overlay">
+        <div class="frame-modal">
+          <div class="frame-modal-title"></div>
+          <div class="frame-modal-body"></div>
+          <div class="frame-modal-hint">Press SPACE to close</div>
+        </div>
+      </div>
     `;
 
     document.body.appendChild(this.frameEl);
@@ -122,6 +132,7 @@ export class FrameManager {
     this.statusCreditsEl = this.frameEl.querySelector('.credits-value')!;
     this.centerOverlayEl = this.frameEl.querySelector('.frame-center-overlay')!;
     this.chatterWindowEl = this.frameEl.querySelector('.frame-chatter-window')!;
+    this.modalOverlayEl = this.frameEl.querySelector('.frame-modal-overlay')!;
     this.cornerEls = Array.from(this.frameEl.querySelectorAll('.frame-corner'));
     this.edgeEls = Array.from(this.frameEl.querySelectorAll('.frame-edge'));
 
@@ -248,16 +259,33 @@ export class FrameManager {
 
   // --- Alert ---
 
-  showAlert(text: string, type: 'info' | 'warn' | 'danger' = 'info'): void {
+  showAlert(text: string, type: 'info' | 'warn' | 'danger' = 'info', durationMs: number = 3000): void {
     this.alertEl.textContent = text;
     this.alertEl.className = `frame-alert frame-alert-${type}`;
     this.alertEl.classList.add('visible');
-    setTimeout(() => this.alertEl.classList.remove('visible'), 3000);
+    setTimeout(() => this.alertEl.classList.remove('visible'), durationMs);
   }
 
   clearAlert(): void {
     this.alertEl.classList.remove('visible');
     this.alertEl.textContent = '';
+  }
+
+  // --- Modal (dismissible popup) ---
+
+  showModal(title: string, body: string, hint: string = 'Press SPACE to close'): void {
+    this.modalOverlayEl.querySelector('.frame-modal-title')!.textContent = title;
+    this.modalOverlayEl.querySelector('.frame-modal-body')!.textContent = body;
+    this.modalOverlayEl.querySelector('.frame-modal-hint')!.textContent = hint;
+    this.modalOverlayEl.classList.add('visible');
+  }
+
+  hideModal(): void {
+    this.modalOverlayEl.classList.remove('visible');
+  }
+
+  isModalVisible(): boolean {
+    return this.modalOverlayEl.classList.contains('visible');
   }
 
   // --- Bottom Bar Status ---

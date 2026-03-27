@@ -74,6 +74,15 @@ export class BootScene extends Phaser.Scene {
       this.load.image(`ruins_${name}`, `assets/tiles/ruins/${name}.png`);
     }
 
+    // Load settlement tiles
+    const settlementTileNames = [
+      'road', 'road_cross', 'building_wall', 'building_floor', 'building_door',
+      'shop_trade', 'shop_modules', 'plaza', 'fence', 'lamp', 'person',
+    ];
+    for (const name of settlementTileNames) {
+      this.load.image(`settlement_${name}`, `assets/tiles/settlement/${name}.png`);
+    }
+
     // Load room interior tiles (per theme)
     const themes = ['retro-scifi', 'biological', 'steampunk', 'military', 'alien'];
     const roomTileNames = [

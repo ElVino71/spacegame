@@ -144,14 +144,18 @@ export class RuinsScene extends Phaser.Scene {
     };
 
     this.input.keyboard!.on('keydown-ESC', () => {
-      if (this.encounterActive) {
+      if (getFrameManager().isModalVisible()) {
+        getFrameManager().hideModal();
+      } else if (this.encounterActive) {
         this.resolveEncounter('flee');
       } else {
         this.exitRuins();
       }
     });
     this.input.keyboard!.on('keydown-SPACE', () => {
-      if (this.encounterActive) {
+      if (getFrameManager().isModalVisible()) {
+        getFrameManager().hideModal();
+      } else if (this.encounterActive) {
         this.resolveEncounter('fight');
       } else {
         this.interact();
@@ -165,12 +169,13 @@ export class RuinsScene extends Phaser.Scene {
 
   shutdown(): void {
     const frame = getFrameManager();
+    frame.hideModal();
     frame.hidePanel();
     getChatterSystem().stop();
   }
 
   update(time: number): void {
-    if (!this.encounterActive) {
+    if (!this.encounterActive && !getFrameManager().isModalVisible()) {
       this.handleMovement(time);
     }
     this.drawPlayer();
@@ -455,7 +460,7 @@ export class RuinsScene extends Phaser.Scene {
     }
 
     getAudioManager().playSfx('mine');
-    getFrameManager().showAlert(`Found: ${item.name} (${item.value} CR)`, 'info');
+    getFrameManager().showAlert(`Found: ${item.name} (${item.value} CR)`, 'info', 5000);
 
     this.redrawTile(this.playerX, this.playerY);
     this.updatePanel();
@@ -466,10 +471,25 @@ export class RuinsScene extends Phaser.Scene {
     tile.loreRead = true;
 
     this.discoveredLore.push(tile.loreEntry);
+
+    // Persist to player's lore collection (deduplicate by id)
+    const known = this.state.player.loreFragments;
+    if (!known.find(f => f.id === tile.loreEntry!.id)) {
+      const system = this.state.galaxy[this.state.player.currentSystemId];
+      known.push({
+        ...tile.loreEntry,
+        discoveredAt: {
+          systemName: system.name,
+          planetName: this.planet.name,
+          timestamp: Date.now(),
+        },
+      });
+    }
+
     getAudioManager().playSfx('ui_select');
 
-    // Show lore in a prominent alert and update panel
-    getFrameManager().showAlert(`"${tile.loreEntry.title}" — ${tile.loreEntry.text}`, 'info');
+    // Show lore in a dismissible modal so the player can read it
+    getFrameManager().showModal(tile.loreEntry.title, tile.loreEntry.text);
 
     this.redrawTile(this.playerX, this.playerY);
     this.updatePanel();

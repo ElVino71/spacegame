@@ -54,9 +54,13 @@ export class StationScene extends Phaser.Scene {
     frame.setThemeFromShip(this.state.player.ship);
     frame.setNav([
       { id: 'station', label: 'Station', active: true },
+      { id: 'ship', label: 'Ship' },
+      { id: 'terminal', label: 'Terminal' },
       { id: 'undock', label: 'Undock', shortcut: 'ESC' },
     ], (id) => {
       if (id === 'undock') this.undock();
+      if (id === 'ship') this.scene.start('ShipInteriorScene', { returnScene: 'StationScene', stationData: this.station });
+      if (id === 'terminal') this.scene.start('TerminalScene', { returnScene: 'StationScene', stationData: this.station });
     });
 
     // No side panel — use center overlay
@@ -286,9 +290,9 @@ export class StationScene extends Phaser.Scene {
   }
 
   private renderMarket(): string {
-    let html = `<div class="center-section-title">Trade Market <span style="font-size:10px;color:var(--frame-text-muted);letter-spacing:0">[B]uy [V]sell [ESC]back</span></div>`;
+    let html = `<div class="center-section-title">Trade Market</div>`;
     html += `<table class="market-table">`;
-    html += `<tr><th>Good</th><th class="right">Buy</th><th class="right">Sell</th><th class="right">Stock</th><th class="right">Owned</th></tr>`;
+    html += `<tr><th>Good</th><th class="right">Buy</th><th class="right">Sell</th><th class="right">Stock</th><th class="right">Owned</th><th></th></tr>`;
 
     for (let i = 0; i < this.market.length; i++) {
       const listing = this.market[i];
@@ -297,17 +301,24 @@ export class StationScene extends Phaser.Scene {
         .filter(c => c.id === listing.cargoId || c.id === listing.good.id || c.baseGoodId === listing.good.id)
         .reduce((sum, c) => sum + c.quantity, 0);
 
+      const canBuy = listing.stock > 0 && this.state.player.credits >= listing.buyPrice && getCargoUsed(this.state.player.cargo) < getCargoCapacity(this.state.player.ship);
+      const canSell = ownedQty > 0;
+
       html += `<tr class="${sel}" data-market-idx="${i}">`;
       html += `<td class="good-name">${listing.displayName}</td>`;
       html += `<td class="right">${listing.buyPrice} CR</td>`;
       html += `<td class="right">${listing.sellPrice} CR</td>`;
       html += `<td class="right">${listing.stock}</td>`;
       html += `<td class="right">${ownedQty > 0 ? ownedQty : '-'}</td>`;
+      html += `<td class="market-actions">`;
+      html += `<button class="market-btn buy-btn${canBuy ? '' : ' disabled'}" data-buy-idx="${i}" title="Buy one">+</button>`;
+      html += `<button class="market-btn sell-btn${canSell ? '' : ' disabled'}" data-sell-idx="${i}" title="Sell one">&minus;</button>`;
+      html += `</td>`;
       html += `</tr>`;
     }
 
     html += `</table>`;
-    html += `<div class="controls-hint">UP/DOWN to select &bull; [B] Buy &bull; [V] Sell &bull; ESC back</div>`;
+    html += `<div class="controls-hint">Click + to buy &bull; &minus; to sell &bull; ESC back</div>`;
     return html;
   }
 
@@ -383,6 +394,26 @@ export class StationScene extends Phaser.Scene {
         this.selectedIndex = idx;
         getAudioManager().playSfx('ui_navigate');
         this.renderCenter();
+      });
+    });
+
+    // Market buy buttons
+    el.querySelectorAll('button[data-buy-idx]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const idx = parseInt((btn as HTMLElement).dataset.buyIdx!, 10);
+        this.selectedIndex = idx;
+        this.tryBuy();
+      });
+    });
+
+    // Market sell buttons
+    el.querySelectorAll('button[data-sell-idx]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const idx = parseInt((btn as HTMLElement).dataset.sellIdx!, 10);
+        this.selectedIndex = idx;
+        this.trySell();
       });
     });
   }
