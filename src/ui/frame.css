@@ -715,6 +715,10 @@ body {
   background: var(--frame-border-glow);
   border-color: color-mix(in srgb, var(--frame-border-color) 30%, transparent);
   border-left-color: var(--frame-accent-primary);
+}
+
+.frame-center-content .menu-item.selected > .menu-label,
+.frame-center-content .menu-item.selected .menu-label {
   color: var(--frame-accent-primary);
 }
 
@@ -722,6 +726,10 @@ body {
   font-size: 10px;
   color: var(--frame-text-muted);
   margin-top: 2px;
+}
+
+.frame-center-content .menu-item.selected .menu-desc {
+  color: var(--frame-text-color);
 }
 
 /* Market table */

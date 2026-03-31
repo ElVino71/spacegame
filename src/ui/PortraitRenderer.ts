@@ -1,32 +1,41 @@
 import { PortraitSeed } from '../entities/Character';
 import { PORTRAIT_PALETTES } from '../data/characters';
 
+// Reference grey levels from the portrait tile generator (generate-portrait-tiles.js)
+// Skin tiles use skinBase [178,178,178], hair tiles use hairBase [108,108,108]
+const SKIN_REF_GREY = 178;
+const HAIR_REF_GREY = 108;
+
 export class PortraitRenderer {
+  private static filterCounter = 0;
+
   /**
    * Render a character portrait as an HTML string.
-   * Uses a 3x3 grid of 32x32 tiles, displayed at 3x scale (96x96).
+   * Uses a 3x3 grid of 32x32 tiles, displayed at the given size.
+   * Tinting uses inline SVG feColorMatrix filters for precise grey-to-color mapping.
    */
   static renderPortrait(seed: PortraitSeed, size: number = 96): string {
     const skinColor = PORTRAIT_PALETTES.skin[seed.skinTone] || PORTRAIT_PALETTES.skin[0];
     const hairColor = PORTRAIT_PALETTES.hair[seed.hairColor] || PORTRAIT_PALETTES.hair[0];
 
-    // CSS filters to tint neutral grey tiles.
-    // Note: This is a simplified approach. Ideally we'd use SVG filters or 
-    // more precise CSS filter strings, but this works for basic tinting.
-    const skinFilter = this.getTintFilter(skinColor);
-    const hairFilter = this.getTintFilter(hairColor);
+    const id = PortraitRenderer.filterCounter++;
+    const skinFilterId = `pt-s-${id}`;
+    const hairFilterId = `pt-h-${id}`;
 
     const tiles = [
-      { part: 'hair_left', index: seed.hair, filter: hairFilter },
-      { part: 'hair_top', index: seed.hair, filter: hairFilter },
-      { part: 'hair_right', index: seed.hair, filter: hairFilter },
-      { part: 'ear_left', index: seed.ears, filter: skinFilter },
-      { part: 'face', index: seed.faceShape, filter: skinFilter },
-      { part: 'ear_right', index: seed.ears, filter: skinFilter },
-      { part: 'chin_left', index: seed.chin, filter: skinFilter },
-      { part: 'mouth', index: seed.mouth, filter: skinFilter },
-      { part: 'chin_right', index: seed.chin, filter: skinFilter }
+      { part: 'hair_left', index: seed.hair, filterId: hairFilterId },
+      { part: 'hair_top', index: seed.hair, filterId: hairFilterId },
+      { part: 'hair_right', index: seed.hair, filterId: hairFilterId },
+      { part: 'ear_left', index: seed.ears, filterId: skinFilterId },
+      { part: 'face', index: seed.faceShape, filterId: skinFilterId },
+      { part: 'ear_right', index: seed.ears, filterId: skinFilterId },
+      { part: 'chin_left', index: seed.chin, filterId: skinFilterId },
+      { part: 'mouth', index: seed.mouth, filterId: skinFilterId },
+      { part: 'chin_right', index: seed.chin, filterId: skinFilterId }
     ];
+
+    // Inline SVG with filter definitions — zero-size, invisible, just hosts the filters
+    const svgDefs = `<svg width="0" height="0" style="position:absolute;pointer-events:none"><defs>${this.buildColorMatrix(skinFilterId, skinColor, SKIN_REF_GREY)}${this.buildColorMatrix(hairFilterId, hairColor, HAIR_REF_GREY)}</defs></svg>`;
 
     const gridStyle = `
       display: grid;
@@ -36,6 +45,7 @@ export class PortraitRenderer {
       image-rendering: pixelated;
       background: rgba(0,0,0,0.2);
       border: 1px solid rgba(255,255,255,0.1);
+      position: relative;
     `;
 
     const imgStyle = `
@@ -46,9 +56,10 @@ export class PortraitRenderer {
 
     const html = `
       <div class="portrait-container" style="${gridStyle}">
+        ${svgDefs}
         ${tiles.map(t => `
-          <img src="assets/tiles/portraits/${t.part}/${t.part}_${t.index}.png" 
-               style="${imgStyle} filter: ${t.filter};" />
+          <img src="assets/tiles/portraits/${t.part}/${t.part}_${t.index}.png"
+               style="${imgStyle} filter: url(#${t.filterId});" />
         `).join('')}
       </div>
     `;
@@ -57,51 +68,20 @@ export class PortraitRenderer {
   }
 
   /**
-   * Helper to generate a CSS filter that tints a grey #888888 to a target color.
-   * This is a heuristic. For high quality, a more complex library like 'css-filter-converter'
-   * would be used, but since we have a fixed palette, we can approximate.
+   * Build an SVG feColorMatrix filter that maps neutral grey tiles to a target color.
+   *
+   * Grey pixels have R=G=B=v. The matrix multiplies each channel by (targetChannel / refGrey),
+   * so when v equals refGrey, the output is exactly the target color. Darker/lighter greys
+   * scale proportionally, preserving shading and highlights.
    */
-  private static getTintFilter(hex: string): string {
-    // We'll use a simple trick: sepia + saturate + hue-rotate
-    // This isn't perfect but for a pixel art game it gives a nice stylized look.
-    // Pure grey #B4B4B4 (180, 180, 180) is our base.
-    
-    // Convert hex to HSL for rotation
-    const hsl = this.hexToHSL(hex);
-    
-    // We want to force the base grey into the target color's ballpark
-    // 1. sepia(1) turns it into a yellowish tint.
-    // 2. hue-rotate moves that tint to the target hue.
-    // 3. saturate adjusts intensity.
-    // 4. brightness/contrast adjusts value.
-    
-    // Base sepia hue is around 35-40 deg.
-    const rotation = (hsl.h - 38 + 360) % 360;
-    const saturation = hsl.s * 1.5; // boost saturation
-    const brightness = 0.5 + (hsl.l / 100); 
+  private static buildColorMatrix(id: string, hex: string, refGrey: number): string {
+    const r = parseInt(hex.slice(1, 3), 16) / refGrey;
+    const g = parseInt(hex.slice(3, 5), 16) / refGrey;
+    const b = parseInt(hex.slice(5, 7), 16) / refGrey;
 
-    return `sepia(1) hue-rotate(${rotation}deg) saturate(${saturation}) brightness(${brightness})`;
-  }
-
-  private static hexToHSL(hex: string) {
-    let r = parseInt(hex.slice(1, 3), 16) / 255;
-    let g = parseInt(hex.slice(3, 5), 16) / 255;
-    let b = parseInt(hex.slice(5, 7), 16) / 255;
-
-    let max = Math.max(r, g, b), min = Math.min(r, g, b);
-    let h = 0, s = 0, l = (max + min) / 2;
-
-    if (max !== min) {
-      let d = max - min;
-      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-      switch (max) {
-        case r: h = (g - b) / d + (g < b ? 6 : 0); break;
-        case g: h = (b - r) / d + 2; break;
-        case b: h = (r - g) / d + 4; break;
-      }
-      h /= 6;
-    }
-
-    return { h: Math.round(h * 360), s: Math.round(s * 100), l: Math.round(l * 100) };
+    // Matrix rows: [R_coeff 0 0 0 0] means out_R = R_coeff * in_R
+    // Since input is grey (R=G=B), this gives out_R = R_coeff * greyLevel
+    // Values >1 are fine; feColorMatrix clamps output to [0,1]
+    return `<filter id="${id}" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values="${r.toFixed(4)} 0 0 0 0 ${g.toFixed(4)} 0 0 0 0 ${b.toFixed(4)} 0 0 0 0 0 0 0 1 0"/></filter>`;
   }
 }

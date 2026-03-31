@@ -181,7 +181,7 @@ export class SettlementScene extends Phaser.Scene {
       html += `<div class="section-title" style="margin-top:8px">Location</div>`;
       if (tile.type === 'building_door' && tile.shopDef) {
         html += this.row('Building', tile.shopDef.name, 'good');
-        html += this.row('Type', tile.shopDef.type === 'trade' ? 'Trade Goods' : 'Ship Modules');
+        html += this.row('Type', tile.shopDef.type === 'trade' ? 'Trade Goods' : tile.shopDef.type === 'bar' ? 'Bar' : 'Ship Modules');
         html += `<div class="action">[SPACE] Enter shop</div>`;
       } else if (tile.type === 'road' || tile.type === 'road_cross') {
         html += this.row('Area', 'Road');
