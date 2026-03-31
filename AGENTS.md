@@ -114,6 +114,7 @@ All human-editable game content lives in `src/data/` for easy tweaking:
 - `planets.ts` — Planet configs (landable/mineable/atmosphere/ruin chance), color palettes, mineral types, biome configs (flora/fauna per planet type)
 - `factions.ts` — Faction names
 - `names.ts` — Name generation word lists (system/planet/station syllables)
+- `npcChatter.ts` — NPC ship proximity chatter (patrol/trader/pirate pools)
 - `misc.ts` — Jokes, flavour text
 - `index.ts` — Barrel re-exports
 
@@ -122,6 +123,7 @@ Source files import from `src/data/` for content and keep only structural types/
 ### Data Model
 
 - **ShipData**: Typed module slots (engine/weapon/shield/cargo/sensor/computer/mining/hull/life_support), each with a max size constraint. Modules have flexible `stats: Record<string, number>`.
+- **NPCShipData** (`src/entities/NPCShip.ts`): AI ships in system view with behavior (patrol/trader/pirate), faction coloring, proximity chatter. Seeded per-system via `generateNPCShips()`. 1-4 ships per system depending on station presence.
 - **StarSystemData**: Star type, planets (with orbit physics), asteroid belts, optional station. Index in galaxy array = system ID.
 - **PlayerData**: Ship, credits, cargo items, current system ID, faction reputation, discovered/visited system sets.
 
@@ -153,3 +155,4 @@ I want claude to make a file for the current planned piece of work before the wo
 to continue the work. Update this plan file as we continue, and clear it when its done, check if the @PLAN.md has anything in that is unfinished before
 we start anything new.
 Use and update @GAME_CONCEPT.md to check of key design goals.
+Document new patterns in @AGENT_LEARNINGS.md (concise, laser-focused, streamlined)

@@ -214,7 +214,7 @@ A 2D space exploration, trading, and combat game inspired by Starflight 2. The p
 
 ### NOT YET IMPLEMENTED
 - Ruin interior generation
-- NPC ship generation
+- ~~NPC ship generation~~ IMPLEMENTED (basic)
 - Dynamic events and encounters
 
 ---
@@ -228,7 +228,7 @@ A 2D space exploration, trading, and combat game inspired by Starflight 2. The p
 ### NOT YET IMPLEMENTED
 - Reputation affecting prices, missions, access
 - Faction-specific goods and ships
-- NPC ships with faction allegiance
+- [x] NPC ships with faction allegiance (basic: patrol/trader/pirate in system view)
 - Dynamic faction relations
 
 ---

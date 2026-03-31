@@ -12,3 +12,4 @@ export * from './chatter';
 export * from './characters';
 export * from './ruins';
 export * from './settlements';
+export * from './npcChatter';

@@ -144,6 +144,15 @@ export class BootScene extends Phaser.Scene {
     shipGfx.generateTexture('ship_player', 32, 32);
     shipGfx.destroy();
 
+    // NPC ship (white triangle — tinted per-faction at runtime)
+    const npcGfx = this.make.graphics({ x: 0, y: 0 });
+    npcGfx.fillStyle(0xffffff);
+    npcGfx.fillTriangle(16, 0, 0, 32, 32, 32);
+    npcGfx.fillStyle(0xcccccc);
+    npcGfx.fillTriangle(16, 4, 4, 28, 28, 28);
+    npcGfx.generateTexture('ship_npc', 32, 32);
+    npcGfx.destroy();
+
     // Star glow
     const starGfx = this.make.graphics({ x: 0, y: 0 });
     starGfx.fillStyle(0xffffff, 0.8);

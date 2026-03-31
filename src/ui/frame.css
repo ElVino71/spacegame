@@ -324,6 +324,108 @@ body {
   text-align: center;
 }
 
+/* Encounter modal elements */
+.encounter-desc {
+  color: var(--frame-text-primary);
+  margin-bottom: 12px;
+  font-style: italic;
+}
+
+.encounter-stats {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 16px;
+  font-size: 11px;
+}
+
+.encounter-stats .stat {
+  color: var(--frame-text-muted);
+}
+
+.encounter-stats .stat-val {
+  color: var(--frame-accent-secondary);
+}
+
+.encounter-stats .stat-val.bad {
+  color: var(--frame-bad);
+}
+
+.encounter-narrative {
+  color: var(--frame-text-primary);
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  border-left: 2px solid var(--frame-accent-primary);
+  line-height: 1.6;
+}
+
+.encounter-outcome {
+  margin-top: 8px;
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+.encounter-outcome.win {
+  color: var(--frame-good);
+}
+
+.encounter-outcome.loss {
+  color: var(--frame-bad);
+}
+
+.encounter-outcome.fled {
+  color: var(--frame-warn);
+}
+
+.encounter-buttons {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin-top: 16px;
+}
+
+.encounter-btn {
+  font-family: var(--frame-font-primary);
+  font-size: 12px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  padding: 8px 24px;
+  border: 1px solid var(--frame-border-color);
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.encounter-btn:hover {
+  background: var(--frame-bg-hover);
+}
+
+.encounter-btn.fight {
+  color: var(--frame-bad);
+  border-color: var(--frame-bad);
+}
+
+.encounter-btn.fight:hover {
+  background: rgba(255, 80, 80, 0.15);
+}
+
+.encounter-btn.flee {
+  color: var(--frame-warn);
+  border-color: var(--frame-warn);
+}
+
+.encounter-btn.flee:hover {
+  background: rgba(255, 200, 50, 0.15);
+}
+
+.encounter-btn.dismiss {
+  color: var(--frame-accent-secondary);
+  border-color: var(--frame-accent-secondary);
+}
+
+.encounter-btn.dismiss:hover {
+  background: rgba(80, 200, 255, 0.15);
+}
+
 /* ============================================================
    BOTTOM BAR
    ============================================================ */
@@ -527,6 +629,7 @@ body {
   user-select: none;
   overflow-y: auto;
   overflow-x: hidden;
+  background: color-mix(in srgb, var(--frame-bg-primary) 92%, transparent);
 }
 
 .frame-center-overlay.visible {

@@ -6,6 +6,10 @@ import { getShipSpeed, getCargoCapacity, getCargoUsed } from '../entities/Player
 import { getFrameManager } from '../ui/FrameManager';
 import { getAudioManager } from '../audio/AudioManager';
 import { getChatterSystem } from '../systems/ChatterSystem';
+import { NPCShipData, generateNPCShips, updateNPCShip, pickNewWaypoint } from '../entities/NPCShip';
+import { getNPCChatterPool } from '../data/npcChatter';
+import { FACTION_NAMES } from '../data/factions';
+import { SeededRandom } from '../utils/SeededRandom';
 
 export class SystemScene extends Phaser.Scene {
   private state!: GameState;
@@ -41,6 +45,13 @@ export class SystemScene extends Phaser.Scene {
 
   // Asteroids
   private asteroids: { x: number; y: number; size: number; angle: number; orbitRadius: number; orbitSpeed: number; orbitAngle: number }[] = [];
+
+  // NPC ships
+  private npcShips: NPCShipData[] = [];
+  private npcSprites: Phaser.GameObjects.Image[] = [];
+  private npcRng!: SeededRandom;
+  private nearestNPC: NPCShipData | null = null;
+  private npcChatterCooldown = 0;
 
   // Audio
   private thrustSfxCooldown = 0;
@@ -141,6 +152,19 @@ export class SystemScene extends Phaser.Scene {
     // Generate asteroid positions
     this.generateAsteroids();
 
+    // Generate NPC ships
+    this.npcShips = generateNPCShips(this.system, this.state.seed);
+    this.npcRng = new SeededRandom(this.state.seed).fork(this.system.id * 4271);
+    this.npcSprites = this.npcShips.map(npc => {
+      const factionColor = (COLORS.factions as number[])[npc.factionIndex] ?? 0xaaaaaa;
+      const sprite = this.add.image(npc.x, npc.y, 'ship_npc')
+        .setDepth(4)
+        .setScale(0.5)
+        .setTint(factionColor);
+      return sprite;
+    });
+    this.npcChatterCooldown = 0;
+
     // Draw static elements (orbits)
     this.drawOrbits();
 
@@ -190,6 +214,7 @@ export class SystemScene extends Phaser.Scene {
     const dt = delta / 1000;
     this.handleShipMovement(dt);
     this.updatePlanetPositions(dt);
+    this.updateNPCShips(dt);
     this.drawDynamicObjects();
     this.updateNearestObject();
     this.updateUI();
@@ -315,6 +340,32 @@ export class SystemScene extends Phaser.Scene {
       this.objectGraphics.fillStyle(0x887766, 0.7);
       this.objectGraphics.fillCircle(ast.x, ast.y, ast.size);
     }
+
+    // NPC ship selection rings & behavior indicators
+    for (const npc of this.npcShips) {
+      const factionColor = (COLORS.factions as number[])[npc.factionIndex] ?? 0xaaaaaa;
+
+      // Small faction-colored dot under the ship for visibility
+      this.objectGraphics.fillStyle(factionColor, 0.3);
+      this.objectGraphics.fillCircle(npc.x, npc.y, 12);
+
+      // Selection ring when nearby
+      if (this.nearestNPC?.id === npc.id) {
+        this.objectGraphics.lineStyle(2, factionColor, 0.7);
+        this.objectGraphics.strokeCircle(npc.x, npc.y, 18);
+      }
+
+      // Pirate aggro indicator — red dashed ring
+      if (npc.behavior === 'pirate') {
+        const dx = this.shipX - npc.x;
+        const dy = this.shipY - npc.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < npc.aggroRange) {
+          this.objectGraphics.lineStyle(1, 0xff4444, 0.4);
+          this.objectGraphics.strokeCircle(npc.x, npc.y, 20);
+        }
+      }
+    }
   }
 
   private handleShipMovement(dt: number): void {
@@ -380,10 +431,75 @@ export class SystemScene extends Phaser.Scene {
     }
   }
 
+  private updateNPCShips(dt: number): void {
+    const hailRange = 180;
+
+    for (let i = 0; i < this.npcShips.length; i++) {
+      const npc = this.npcShips[i];
+      const sprite = this.npcSprites[i];
+
+      updateNPCShip(npc, dt, this.shipX, this.shipY, this.system, this.npcRng.fork(npc.id));
+
+      // Update sprite position and rotation (offset by PI/2 because sprite points up)
+      sprite.setPosition(npc.x, npc.y);
+      sprite.setRotation(npc.angle + Math.PI / 2);
+
+      // Proximity chatter
+      const dx = this.shipX - npc.x;
+      const dy = this.shipY - npc.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+
+      if (dist < hailRange && !npc.hailed && this.npcChatterCooldown <= 0) {
+        this.triggerNPCChatter(npc);
+        npc.hailed = true;
+        this.npcChatterCooldown = 8; // seconds between NPC chatters
+      }
+
+      // Reset hailed flag when player moves away
+      if (dist > hailRange * 2) {
+        npc.hailed = false;
+      }
+    }
+
+    if (this.npcChatterCooldown > 0) {
+      this.npcChatterCooldown -= dt;
+    }
+  }
+
+  private triggerNPCChatter(npc: NPCShipData): void {
+    const pool = npc.behavior === 'pirate'
+      ? getNPCChatterPool('pirate')
+      : getNPCChatterPool(npc.behavior);
+
+    if (pool.length === 0) return;
+
+    // Weighted random selection
+    const totalWeight = pool.reduce((sum, entry) => sum + entry.weight, 0);
+    let roll = Math.random() * totalWeight;
+    let selected = pool[0];
+    for (const entry of pool) {
+      if (roll < entry.weight) {
+        selected = entry;
+        break;
+      }
+      roll -= entry.weight;
+    }
+
+    const factionName = FACTION_NAMES[npc.factionIndex] || 'Unknown';
+    const text = selected.text
+      .replace(/\{name\}/g, npc.name)
+      .replace(/\{faction\}/g, factionName);
+
+    getFrameManager().addChatter(text, selected.color);
+    getAudioManager().playSfx('ui_select');
+  }
+
   private updateNearestObject(): void {
     const interactRange = 50;
+    const npcInfoRange = 120;
     this.nearestPlanet = null;
     this.nearStation = false;
+    this.nearestNPC = null;
     let closestDist = Infinity;
 
     for (const planet of this.system.planets) {
@@ -408,6 +524,17 @@ export class SystemScene extends Phaser.Scene {
       if (dist < interactRange && dist < closestDist) {
         this.nearestPlanet = null;
         this.nearStation = true;
+        closestDist = dist;
+      }
+    }
+
+    // Check NPC ships (only show info, no interaction yet)
+    for (const npc of this.npcShips) {
+      const dx = this.shipX - npc.x;
+      const dy = this.shipY - npc.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < npcInfoRange && !this.nearestPlanet && !this.nearStation) {
+        this.nearestNPC = npc;
       }
     }
   }
@@ -458,6 +585,15 @@ export class SystemScene extends Phaser.Scene {
     } else if (this.nearStation) {
       const st = this.system.station!;
       this.infoText.setText(`${st.name}\nEconomy: ${st.economy}\n\n[ENTER] Dock at station`);
+    } else if (this.nearestNPC) {
+      const npc = this.nearestNPC;
+      const faction = FACTION_NAMES[npc.factionIndex] || 'Unknown';
+      const behaviorLabel = npc.behavior === 'pirate' ? 'HOSTILE' : npc.behavior === 'trader' ? 'Trader' : 'Patrol';
+      let info = `${npc.name}\n`;
+      info += `Class: ${npc.shipClass}\n`;
+      info += `Faction: ${faction}\n`;
+      info += `Status: ${behaviorLabel}\n`;
+      this.infoText.setText(info);
     } else {
       this.infoText.setText(`System: ${this.system.name}\nPlanets: ${this.system.planets.length}`);
     }
