@@ -123,10 +123,10 @@ export class SettlementScene extends Phaser.Scene {
         this.exitSettlement();
       }
     });
-    this.input.keyboard!.on('keydown-SPACE', () => {
+    this.input.keyboard!.on('keydown-ENTER', () => {
       if (!this.shopActive) this.interact();
     });
-    this.input.keyboard!.on('keydown-ENTER', () => {
+    this.input.keyboard!.on('keydown-SPACE', () => {
       if (this.shopActive) this.shopSelect();
     });
     this.input.keyboard!.on('keydown-UP', () => { if (this.shopActive) this.shopNavigate(-1); });
@@ -182,7 +182,7 @@ export class SettlementScene extends Phaser.Scene {
       if (tile.type === 'building_door' && tile.shopDef) {
         html += this.row('Building', tile.shopDef.name, 'good');
         html += this.row('Type', tile.shopDef.type === 'trade' ? 'Trade Goods' : tile.shopDef.type === 'bar' ? 'Bar' : 'Ship Modules');
-        html += `<div class="action">[SPACE] Enter shop</div>`;
+        html += `<div class="action">[ENTER] Enter shop</div>`;
       } else if (tile.type === 'road' || tile.type === 'road_cross') {
         html += this.row('Area', 'Road');
       } else if (tile.type === 'plaza') {
@@ -194,7 +194,7 @@ export class SettlementScene extends Phaser.Scene {
 
     html += `<div class="section-title" style="margin-top:8px">Controls</div>`;
     html += `<div class="action">WASD/Arrows: Move</div>`;
-    html += `<div class="action">SPACE: Interact</div>`;
+    html += `<div class="action">ENTER: Enter</div>`;
     html += `<div class="action">ESC: Leave</div>`;
 
     el.innerHTML = html;
@@ -417,7 +417,7 @@ export class SettlementScene extends Phaser.Scene {
         html += `<div style="font-size:12px; margin-bottom:5px;">Bonus: <span class="${canAfford ? 'good' : 'bad'}">500 CR</span></div>`;
         html += `<div style="font-size:12px;">Salary: ${c.salary} CR</div>`;
         if (sel) {
-          html += `<div class="action-btn" style="margin-top:10px; background:var(--frame-bg-active); padding:4px; font-size:10px; text-align:center;">[ENTER] HIRE</div>`;
+          html += `<div class="action-btn" style="margin-top:10px; background:var(--frame-bg-active); padding:4px; font-size:10px; text-align:center;">[SPACE] HIRE</div>`;
         }
         html += `</div>`;
 

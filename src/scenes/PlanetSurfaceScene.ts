@@ -15,6 +15,13 @@ const PANEL_WIDTH = 240;
 const MOVE_DELAY = 150; // ms between tile moves
 const ROVER_CARGO_MAX = 5;
 
+interface POIMarker {
+  x: number;
+  y: number;
+  type: 'mineral' | 'ruin' | 'settlement';
+  color: number;
+}
+
 interface SurfaceTile {
   type: 'ground' | 'rock' | 'mineral' | 'ruin_entrance' | 'settlement' | 'water' | 'lava' | 'flora' | 'fauna';
   color: number;
@@ -38,6 +45,11 @@ export class PlanetSurfaceScene extends Phaser.Scene {
   private lastMoveTime = 0;
   private roverCargo: CargoItem[] = [];
   private roverHull = { current: 50, max: 50 };
+
+  // Scanner
+  private scannerGfx!: Phaser.GameObjects.Graphics;
+  private poiMarkers: POIMarker[] = [];
+  private scannerAngle = 0;
 
   // Input
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
@@ -84,10 +96,20 @@ export class PlanetSurfaceScene extends Phaser.Scene {
     const mapPixelsW = MAP_SIZE * TILE_SIZE;
     this.mapRT = this.add.renderTexture(0, 0, mapPixelsW, mapPixelsW).setOrigin(0, 0).setDepth(0);
     this.generateSurface();
+    this.collectPOIs();
     this.drawMap();
 
     // Player sprite
     this.playerSprite = this.add.image(0, 0, 'tile_rover').setOrigin(0.5, 0.5).setDepth(1);
+
+    // Scanner overlay — use a separate unzoomed camera so the scanner isn't scaled by the 2x map zoom
+    this.scannerGfx = this.add.graphics().setDepth(10);
+    this.scannerAngle = 0;
+    const uiCam = this.cameras.add(PANEL_WIDTH, 0, GAME_WIDTH - PANEL_WIDTH, GAME_HEIGHT);
+    uiCam.setScroll(0, 0);
+    // Main camera ignores scanner, UI camera ignores everything else
+    this.cameras.main.ignore(this.scannerGfx);
+    uiCam.ignore([this.mapRT, this.playerSprite]);
 
     // Center camera
     this.centerCamera();
@@ -103,6 +125,7 @@ export class PlanetSurfaceScene extends Phaser.Scene {
 
     this.input.keyboard!.on('keydown-ESC', () => this.liftoff());
     this.input.keyboard!.on('keydown-SPACE', () => this.interact());
+    this.input.keyboard!.on('keydown-ENTER', () => this.enterPOI());
 
     getAudioManager().setAmbience('planet_surface');
 
@@ -116,9 +139,10 @@ export class PlanetSurfaceScene extends Phaser.Scene {
     getChatterSystem().stop();
   }
 
-  update(time: number): void {
+  update(time: number, delta: number): void {
     this.handleMovement(time);
     this.drawPlayer();
+    this.drawScanner(delta);
   }
 
   // ─── FRAME PANEL ──────────────────────────────────────
@@ -137,6 +161,7 @@ export class PlanetSurfaceScene extends Phaser.Scene {
     document.getElementById('panel-controls')!.innerHTML =
       `<span>WASD/Arrows</span> Move<br>` +
       `<span>SPACE</span> Interact<br>` +
+      `<span>ENTER</span> Enter<br>` +
       `<span>ESC</span> Lift off`;
   }
 
@@ -214,11 +239,11 @@ export class PlanetSurfaceScene extends Phaser.Scene {
       }
       case 'ruin_entrance':
         html += this.row('Type', 'Ancient Ruins', 'warn');
-        html += `<div class="action">[SPACE] Enter ruins</div>`;
+        html += `<div class="action">[ENTER] Enter ruins</div>`;
         break;
       case 'settlement':
         html += this.row('Type', 'Settlement', 'good');
-        html += `<div class="action">[SPACE] Enter settlement</div>`;
+        html += `<div class="action">[ENTER] Enter settlement</div>`;
         break;
       case 'rock':
         html += this.row('Type', 'Rock Formation');
@@ -400,8 +425,17 @@ export class PlanetSurfaceScene extends Phaser.Scene {
       tile.color = 0x555544;
       tile.groundVariant = 2;
       this.redrawTile(this.playerX, this.playerY);
+      // Remove mined mineral from scanner POIs
+      const idx = this.poiMarkers.findIndex(p => p.x === this.playerX && p.y === this.playerY);
+      if (idx >= 0) this.poiMarkers.splice(idx, 1);
       this.updatePanel();
-    } else if (tile.type === 'ruin_entrance') {
+    }
+  }
+
+  private enterPOI(): void {
+    const tile = this.tiles[this.playerY][this.playerX];
+
+    if (tile.type === 'ruin_entrance') {
       getAudioManager().playSfx('land');
       const frame = getFrameManager();
       frame.hidePanel();
@@ -445,6 +479,143 @@ export class PlanetSurfaceScene extends Phaser.Scene {
       targetData: { fromPlanetId: this.planet.id },
       text: `LAUNCHING FROM ${this.planet.name.toUpperCase()}...`,
     });
+  }
+
+  // ─── SCANNER ─────────────────────────────────────────────
+
+  private collectPOIs(): void {
+    this.poiMarkers = [];
+    for (let y = 0; y < MAP_SIZE; y++) {
+      for (let x = 0; x < MAP_SIZE; x++) {
+        const tile = this.tiles[y][x];
+        if (tile.type === 'mineral') {
+          this.poiMarkers.push({ x, y, type: 'mineral', color: 0xffdd00 });
+        } else if (tile.type === 'ruin_entrance') {
+          this.poiMarkers.push({ x, y, type: 'ruin', color: 0xaa44ff });
+        } else if (tile.type === 'settlement') {
+          this.poiMarkers.push({ x, y, type: 'settlement', color: 0x00ddff });
+        }
+      }
+    }
+  }
+
+  private drawScanner(delta: number): void {
+    const gfx = this.scannerGfx;
+    gfx.clear();
+
+    const viewW = GAME_WIDTH - PANEL_WIDTH;
+    const radius = 40;
+    const cx = viewW - radius - 24;
+    const cy = radius + 24;
+
+    // Background circle
+    gfx.fillStyle(0x000000, 0.5);
+    gfx.fillCircle(cx, cy, radius);
+    gfx.lineStyle(1, 0x33ff66, 0.6);
+    gfx.strokeCircle(cx, cy, radius);
+
+    // Inner rings
+    gfx.lineStyle(1, 0x33ff66, 0.15);
+    gfx.strokeCircle(cx, cy, radius * 0.5);
+    gfx.lineStyle(1, 0x33ff66, 0.1);
+    gfx.strokeCircle(cx, cy, radius * 0.25);
+
+    // Crosshairs
+    gfx.lineStyle(1, 0x33ff66, 0.15);
+    gfx.lineBetween(cx - radius, cy, cx + radius, cy);
+    gfx.lineBetween(cx, cy - radius, cx, cy + radius);
+
+    // Sweep line
+    this.scannerAngle += delta * 0.002;
+    if (this.scannerAngle > Math.PI * 2) this.scannerAngle -= Math.PI * 2;
+    const sweepX = cx + Math.cos(this.scannerAngle) * radius;
+    const sweepY = cy + Math.sin(this.scannerAngle) * radius;
+    gfx.lineStyle(1, 0x33ff66, 0.4);
+    gfx.lineBetween(cx, cy, sweepX, sweepY);
+
+    // Sweep trail (fading arc)
+    for (let i = 1; i <= 8; i++) {
+      const trailAngle = this.scannerAngle - i * 0.08;
+      const alpha = 0.25 * (1 - i / 8);
+      const tx = cx + Math.cos(trailAngle) * radius;
+      const ty = cy + Math.sin(trailAngle) * radius;
+      gfx.lineStyle(1, 0x33ff66, alpha);
+      gfx.lineBetween(cx, cy, tx, ty);
+    }
+
+    // Scanner range in tiles — POIs within this range show as blips
+    const scanRange = 60;
+    // Unique POIs: cluster minerals by proximity, keep individual ruins/settlements
+    const uniquePOIs = this.getUniquePOIs();
+
+    // Player center dot
+    gfx.fillStyle(0x33ff66, 0.9);
+    gfx.fillCircle(cx, cy, 2);
+
+    // Draw blips for POIs
+    for (const poi of uniquePOIs) {
+      const dx = poi.x - this.playerX;
+      const dy = poi.y - this.playerY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+
+      if (dist < 1) continue; // skip if on top of player
+
+      const angle = Math.atan2(dy, dx);
+
+      // Map distance to radial position on scanner
+      // Closer POIs appear nearer to center, farther ones near the edge
+      const normDist = Math.min(dist / scanRange, 1);
+      const blipR = normDist * (radius - 4) + 3;
+
+      const bx = cx + Math.cos(angle) * blipR;
+      const by = cy + Math.sin(angle) * blipR;
+
+      // Size and alpha based on distance (closer = bigger & brighter)
+      const alpha = dist > scanRange ? 0.25 : 0.4 + 0.6 * (1 - normDist);
+      const size = dist > scanRange ? 1.5 : 2 + 2 * (1 - normDist);
+
+      gfx.fillStyle(poi.color, alpha);
+      gfx.fillCircle(bx, by, size);
+    }
+
+    // Label
+    gfx.fillStyle(0x33ff66, 0.5);
+    // Small "SCAN" text would need Phaser text — skip for clean look
+  }
+
+  /** Cluster nearby mineral POIs so the scanner isn't cluttered */
+  private getUniquePOIs(): POIMarker[] {
+    const result: POIMarker[] = [];
+    const mineralClusters: { x: number; y: number; count: number }[] = [];
+
+    for (const poi of this.poiMarkers) {
+      if (poi.type !== 'mineral') {
+        result.push(poi);
+        continue;
+      }
+      // Try to merge into existing cluster
+      let merged = false;
+      for (const cluster of mineralClusters) {
+        const dx = poi.x - cluster.x;
+        const dy = poi.y - cluster.y;
+        if (dx * dx + dy * dy < 36) { // within 6 tiles
+          cluster.x = (cluster.x * cluster.count + poi.x) / (cluster.count + 1);
+          cluster.y = (cluster.y * cluster.count + poi.y) / (cluster.count + 1);
+          cluster.count++;
+          merged = true;
+          break;
+        }
+      }
+      if (!merged) {
+        mineralClusters.push({ x: poi.x, y: poi.y, count: 1 });
+      }
+    }
+
+    for (const cluster of mineralClusters) {
+      result.push({ x: Math.round(cluster.x), y: Math.round(cluster.y), type: 'mineral', color: 0xffdd00 });
+    }
+
+    return result;
   }
 
   // ─── GENERATION ─────────────────────────────────────────

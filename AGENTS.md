@@ -147,6 +147,7 @@ All SFX are synthesized procedurally (oscillators, filters, noise). No audio fil
 - **Phaser text positioning**: UI text using `setScrollFactor(0)` must be placed at (30, 30) or further from edges to clear the 96px frame border tiles.
 - **Constants**: Game dimensions (1280x720), colors, type arrays in `src/utils/Constants.ts`. Game content data (trade goods, ships, planets, names, factions) in `src/data/`.
 - **Data directory rule**: All new game content data (arrays of items, word lists, config tables, lore entries, bios, stat tables, etc.) **must** go in `src/data/`. Scene and entity files should only contain logic — never inline content data. If adding a new content domain (e.g. lore, NPCs, quests), create a new file in `src/data/` and add it to the barrel export in `src/data/index.ts`.
+- **Key binding convention**: **SPACE** = interact (mine, collect, buy/sell, read — in-place actions). **ENTER** = enter scene (enter ruins, settlements, shops, dock, land — scene transitions). All scenes must follow this pattern consistently.
 
 ## Key Rules
 

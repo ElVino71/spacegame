@@ -157,7 +157,12 @@ export class RuinsScene extends Phaser.Scene {
       if (getFrameManager().isModalVisible() && !this.encounterActive) {
         getFrameManager().hideModal();
       } else if (!this.encounterActive) {
-        this.interact();
+        this.interactItem();
+      }
+    });
+    this.input.keyboard!.on('keydown-ENTER', () => {
+      if (!this.encounterActive) {
+        this.enterExit();
       }
     });
 
@@ -196,6 +201,7 @@ export class RuinsScene extends Phaser.Scene {
     document.getElementById('panel-controls')!.innerHTML =
       `<span>WASD/Arrows</span> Move<br>` +
       `<span>SPACE</span> Interact<br>` +
+      `<span>ENTER</span> Enter/Exit<br>` +
       `<span>ESC</span> Exit`;
   }
 
@@ -256,7 +262,7 @@ export class RuinsScene extends Phaser.Scene {
         switch (tile.type) {
           case 'stairs_up':
             tileInfo += this.row('Type', 'Stairs Up', 'good');
-            tileInfo += `<div class="label">Press SPACE to exit</div>`;
+            tileInfo += `<div class="label">Press ENTER to exit</div>`;
             break;
           case 'stairs_down':
             tileInfo += this.row('Type', 'Stairs Down', 'warn');
@@ -418,14 +424,24 @@ export class RuinsScene extends Phaser.Scene {
   // ─── INTERACTION ──────────────────────────────────────
 
   private interact(): void {
+    this.interactItem();
+  }
+
+  private interactItem(): void {
+    const tile = this.tiles[this.playerY][this.playerX];
+
+    if (tile.type === 'treasure' && !tile.lootCollected) {
+      this.collectTreasure(tile);
+    } else if (tile.type === 'lore' && !tile.loreRead) {
+      this.readLore(tile);
+    }
+  }
+
+  private enterExit(): void {
     const tile = this.tiles[this.playerY][this.playerX];
 
     if (tile.type === 'stairs_up') {
       this.exitRuins();
-    } else if (tile.type === 'treasure' && !tile.lootCollected) {
-      this.collectTreasure(tile);
-    } else if (tile.type === 'lore' && !tile.loreRead) {
-      this.readLore(tile);
     }
   }
 
