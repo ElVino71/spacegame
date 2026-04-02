@@ -6,7 +6,7 @@ import type { ChatterEntry } from './chatter';
 
 // ─── Shop Types ─────────────────────────────────────────
 
-export type ShopType = 'trade' | 'modules' | 'bar';
+export type ShopType = 'trade' | 'modules' | 'bar' | 'artefacts';
 
 export interface ShopDef {
   type: ShopType;
@@ -22,6 +22,12 @@ export const SHOP_TEMPLATES: ShopDef[] = [
   { type: 'modules', name: 'Ship Outfitter', desc: 'Ship modules and upgrades' },
   { type: 'modules', name: 'Tech Workshop', desc: 'Custom ship components' },
   { type: 'modules', name: 'Parts Dealer', desc: 'Salvaged and new ship parts' },
+];
+
+export const ARTEFACT_SHOP_TEMPLATES: ShopDef[] = [
+  { type: 'artefacts', name: 'Relic Dealer', desc: 'Buys ancient artefacts and relics' },
+  { type: 'artefacts', name: 'Antiquities Trader', desc: 'Collector of precursor artefacts' },
+  { type: 'artefacts', name: 'Curio Shop', desc: 'We buy strange and ancient things' },
 ];
 
 export const BAR_TEMPLATES: ShopDef[] = [

@@ -55,7 +55,8 @@ export class TitleScene extends Phaser.Scene {
           <button id="continue-btn" class="action ${saveExists ? '' : 'disabled'}" style="padding: 15px 30px; font-size: 20px; width: 100%; cursor: pointer;" ${saveExists ? '' : 'disabled'}>CONTINUE GAME</button>
         </div>
         
-        <div style="margin-top: 80px; font-size: 12px; color: var(--frame-text-muted); opacity: 0.5;">
+        <div style="margin-top: 60px; font-size: 14px; color: var(--frame-border-color); opacity: 0.7; letter-spacing: 2px;">By ElVino</div>
+        <div style="margin-top: 20px; font-size: 12px; color: var(--frame-text-muted); opacity: 0.5;">
           &copy; 2026 STARWARD DRIFT - ALPHA BUILD
         </div>
       </div>

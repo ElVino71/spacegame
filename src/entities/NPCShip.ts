@@ -1,5 +1,6 @@
 import { SeededRandom } from '../utils/SeededRandom';
 import { StarSystemData } from './StarSystem';
+import { NPC_COMBAT_STATS, NPC_WEAPON_LOADOUTS, NPCWeaponDef } from '../data/combat';
 
 
 export type NPCBehavior = 'patrol' | 'trader' | 'pirate';
@@ -25,6 +26,17 @@ export interface NPCShipData {
   waitTimer: number;       // seconds to idle at a waypoint
   aggroRange: number;      // how close before pirate engages
   hailed: boolean;         // already triggered proximity chatter this encounter
+
+  // Combat stats
+  hull: number;
+  hullMax: number;
+  shieldCurrent: number;
+  shieldMax: number;
+  shieldRecharge: number;
+  weapons: NPCWeaponDef[];
+  engineSpeed: number;
+  evasion: number;
+  encounterCooldown: number; // seconds until this NPC can trigger encounter again
 }
 
 // Simple NPC name generator
@@ -79,6 +91,9 @@ export function generateNPCShips(system: StarSystemData, galaxySeed: number): NP
     const prefix = NPC_SHIP_PREFIXES[factionIndex] || 'SS';
     const name = `${prefix} ${shipRng.pick(NPC_SHIP_NAMES)}`;
 
+    // Combat stats from class
+    const combatStats = NPC_COMBAT_STATS[shipClass] || NPC_COMBAT_STATS.scout;
+
     // Speed based on class
     const baseSpeed = shipClass === 'freighter' ? 40 : shipClass === 'gunship' ? 55 : 60;
     const speed = baseSpeed + shipRng.float(-10, 10);
@@ -109,6 +124,15 @@ export function generateNPCShips(system: StarSystemData, galaxySeed: number): NP
       waitTimer: 0,
       aggroRange: behavior === 'pirate' ? 250 : 0,
       hailed: false,
+      hull: combatStats.hullMax,
+      hullMax: combatStats.hullMax,
+      shieldCurrent: combatStats.shieldMax,
+      shieldMax: combatStats.shieldMax,
+      shieldRecharge: combatStats.shieldRecharge,
+      weapons: [...(NPC_WEAPON_LOADOUTS[shipClass] || NPC_WEAPON_LOADOUTS.scout)],
+      engineSpeed: combatStats.engineSpeed,
+      evasion: combatStats.evasion,
+      encounterCooldown: 0,
     });
   }
 

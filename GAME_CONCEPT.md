@@ -77,7 +77,7 @@ A 2D space exploration, trading, and combat game inspired by Starflight 2. The p
 
 ### 7. Station Interface — IMPLEMENTED
 - Entered when docking at a space station (with docking transition)
-- Menu-driven interface: Trade Goods, Refuel, Repair Hull, Undock
+- Menu-driven interface: Trade Goods, Refuel, Repair Hull, Artefact Dealer, Undock
 - HTML side panel shows station info, ship status, market listings, cargo hold
 - 15 trade commodities with prices affected by station economy type
 - Economy types modify buy/sell prices (e.g. mining stations sell minerals cheap)
@@ -97,6 +97,7 @@ A 2D space exploration, trading, and combat game inspired by Starflight 2. The p
 - Seeded from planet data for deterministic layout per planet
 - Tile types: roads, road crossings, plazas, building walls/floors, doors, fences, lamps
 - 1-2 shops per settlement: trade goods shop and/or ship module shop
+- ~30% chance of an artefact dealer where players can sell ruin loot at premium prices
 - Every settlement has a bar where crew members can be recruited (same UI as station recruitment)
 - Trade shops: buy/sell subset of trade goods (6-8 items, slightly higher prices than stations)
 - Module shops: buy and install ship modules into empty slots (4-6 modules from full catalog)
@@ -126,13 +127,19 @@ A 2D space exploration, trading, and combat game inspired by Starflight 2. The p
 - Illegal goods (contraband) with risk/reward
 - Trade route discovery through NPC tips
 
-### Combat — NOT YET IMPLEMENTED
-- Real-time 2D combat in system view
-- Shield management (directional shields if upgraded)
-- Multiple weapon types: lasers, missiles, kinetic, EMP
-- Ship agility affected by engine type and cargo weight
-- Disable vs destroy options (boarding for loot, or bounty collection)
-- Flee option with engine-dependent success chance
+### Combat — IMPLEMENTED (Basic)
+- SpaceInteractionScene for ship-to-ship encounters (combat, trade, dialogue)
+- AI-controlled combat: both ships maneuver and fire autonomously
+- Multiple weapon types: lasers, missiles, kinetic, EMP with distinct visuals
+- Shield management with recharge, EMP bypass, missile bonus damage
+- 5 AI maneuver types: orbit, charge, strafe, retreat, evade (weighted by behavior)
+- Flee option with engine-speed-dependent success chance, pilot skill bonus
+- Crew skill bonuses: gunner → damage, engineer → shield recharge, pilot → evasion/flee
+- Hostile NPC auto-triggers combat when pirate approaches player in system view
+- Player-initiated encounters via ENTER near any NPC (attack/trade/exit options)
+- Combat chatter (taunts, damage reactions, flee taunts, victory/defeat lines)
+- Post-combat effects: loot on victory, cargo loss on defeat, reputation changes
+- NOT YET: Directional shields, disable vs destroy, boarding for loot
 
 ### Bounty Hunting — NOT YET IMPLEMENTED
 - Bounty board available at stations

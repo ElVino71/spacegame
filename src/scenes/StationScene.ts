@@ -2,12 +2,13 @@ import Phaser from 'phaser';
 import { getGameState, GameState } from '../GameState';
 import { FACTION_NAMES } from '../data/factions';
 import { StationData } from '../entities/StarSystem';
-import { getCargoCapacity, getCargoUsed, getCrewCapacity, getRepairDiscount } from '../entities/Player';
+import { CargoItem, getCargoCapacity, getCargoUsed, getCrewCapacity, getRepairDiscount } from '../entities/Player';
 import { SeededRandom } from '../utils/SeededRandom';
 import { getFrameManager } from '../ui/FrameManager';
 import { getAudioManager } from '../audio/AudioManager';
 import { getChatterSystem } from '../systems/ChatterSystem';
 import { TRADE_GOODS, TRADE_PREFIXES, ECONOMY_MODIFIERS, TradeGood } from '../data/trade';
+import { RUIN_LOOT, ARTEFACT_PRICE_MULTIPLIERS } from '../data/ruins';
 import { NPC_ROLES, CREW_ROLES } from '../data/characters';
 import { saveGame } from '../utils/SaveSystem';
 import { CharacterGenerator } from '../generation/CharacterGenerator';
@@ -30,7 +31,7 @@ export class StationScene extends Phaser.Scene {
   private npcs: StationNPC[] = [];
   private hirelings: CrewMember[] = [];
   private selectedIndex = 0;
-  private mode: 'menu' | 'market' | 'refuel' | 'repair' | 'recruitment' = 'menu';
+  private mode: 'menu' | 'market' | 'refuel' | 'repair' | 'recruitment' | 'artefacts' = 'menu';
 
   constructor() {
     super({ key: 'StationScene' });
@@ -82,7 +83,7 @@ export class StationScene extends Phaser.Scene {
     this.input.keyboard!.on('keydown-S', () => this.navigate(1));
     this.input.keyboard!.on('keydown-ENTER', () => this.select());
     this.input.keyboard!.on('keydown-B', () => this.tryBuy());
-    this.input.keyboard!.on('keydown-V', () => this.trySell());
+    this.input.keyboard!.on('keydown-V', () => { if (this.mode === 'artefacts') this.sellArtefact(); else this.trySell(); });
     this.input.keyboard!.on('keydown-R', () => this.handleR());
 
     getChatterSystem().attach(this);
@@ -176,6 +177,8 @@ export class StationScene extends Phaser.Scene {
       html += this.renderRepair();
     } else if (this.mode === 'recruitment') {
       html += this.renderRecruitment();
+    } else if (this.mode === 'artefacts') {
+      html += this.renderArtefacts();
     }
 
     // Cargo hold
@@ -198,6 +201,7 @@ export class StationScene extends Phaser.Scene {
       { id: 'market', label: 'Trade Goods', desc: 'Buy and sell commodities', npc: this.npcs.find(n => n.role === 'merchant') },
       { id: 'refuel', label: 'Refuel Ship', desc: 'Replenish fuel reserves', npc: this.npcs.find(n => n.role === 'bartender' || n.role === 'merchant') },
       { id: 'repair', label: 'Repair Hull', desc: 'Fix structural damage', npc: this.npcs.find(n => n.role === 'mechanic') },
+      { id: 'artefacts', label: 'Artefact Dealer', desc: 'Sell ancient relics and artefacts', npc: this.npcs.find(n => n.role === 'fence') },
     ];
 
     const recruiter = this.npcs.find(n => n.role === 'recruiter');
@@ -416,6 +420,25 @@ export class StationScene extends Phaser.Scene {
         this.trySell();
       });
     });
+
+    // Artefact sell buttons
+    el.querySelectorAll('button[data-artefact-sell]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const idx = parseInt((btn as HTMLElement).dataset.artefactSell!, 10);
+        this.selectedIndex = idx;
+        this.sellArtefact();
+      });
+    });
+
+    // Artefact row click to select
+    el.querySelectorAll('[data-artefact-idx]').forEach(row => {
+      row.addEventListener('click', () => {
+        const idx = parseInt((row as HTMLElement).dataset.artefactIdx!, 10);
+        this.selectedIndex = idx;
+        this.renderCenter();
+      });
+    });
   }
 
   // ─── NAVIGATION ─────────────────────────────────────────
@@ -424,9 +447,11 @@ export class StationScene extends Phaser.Scene {
     let max = 5;
     if (this.mode === 'menu') {
       const recruiter = this.npcs.find(n => n.role === 'recruiter');
-      max = (recruiter || this.hirelings.length > 0) ? 6 : 5;
+      // menu items: market, refuel, repair, artefacts, [recruitment], save, undock
+      max = (recruiter || this.hirelings.length > 0) ? 7 : 6;
     }
     if (this.mode === 'market') max = this.market.length;
+    if (this.mode === 'artefacts') max = this.getArtefactCargo().length;
     if (this.mode === 'recruitment') max = this.hirelings.length;
     if (max === 0) return;
     this.selectedIndex = (this.selectedIndex + dir + max) % max;
@@ -440,24 +465,28 @@ export class StationScene extends Phaser.Scene {
       const recruiter = this.npcs.find(n => n.role === 'recruiter');
       const hasRecruitOption = (recruiter || this.hirelings.length > 0);
       
-      // Determine what was clicked based on index
-      // 0: market, 1: refuel, 2: repair, 3: recruitment (if exists), 4: save, 5: undock
-      let idx = this.selectedIndex;
-      if (!hasRecruitOption && idx >= 3) idx += 1;
+      // Build ordered list of service IDs matching renderMenu order
+      const menuIds = ['market', 'refuel', 'repair', 'artefacts'];
+      if (hasRecruitOption) menuIds.push('recruitment');
+      menuIds.push('save', 'undock');
 
-      switch (idx) {
-        case 0: this.mode = 'market'; this.selectedIndex = 0; break;
-        case 1: this.mode = 'refuel'; break;
-        case 2: this.mode = 'repair'; this.selectedIndex = 0; this.repairHull(); return;
-        case 3: this.mode = 'recruitment'; this.selectedIndex = 0; break;
-        case 4: 
+      const selectedId = menuIds[this.selectedIndex];
+      switch (selectedId) {
+        case 'market': this.mode = 'market'; this.selectedIndex = 0; break;
+        case 'refuel': this.mode = 'refuel'; break;
+        case 'repair': this.mode = 'repair'; this.selectedIndex = 0; this.repairHull(); return;
+        case 'artefacts': this.mode = 'artefacts'; this.selectedIndex = 0; break;
+        case 'recruitment': this.mode = 'recruitment'; this.selectedIndex = 0; break;
+        case 'save': 
           saveGame(this.state);
           this.scene.start('TitleScene');
           return;
-        case 5: this.undock(); return;
+        case 'undock': this.undock(); return;
       }
     } else if (this.mode === 'market') {
       this.tryBuy();
+    } else if (this.mode === 'artefacts') {
+      this.sellArtefact();
     } else if (this.mode === 'repair') {
       this.repairHull();
       return;
@@ -597,6 +626,71 @@ export class StationScene extends Phaser.Scene {
     } else {
       this.selectedIndex = Math.min(this.selectedIndex, this.hirelings.length - 1);
     }
+    this.renderCenter();
+  }
+
+  // ─── ARTEFACT HELPERS ──────────────────────────────────
+
+  private getArtefactCargo(): { item: CargoItem; loot: (typeof RUIN_LOOT)[number]; sellPrice: number }[] {
+    const results: { item: CargoItem; loot: (typeof RUIN_LOOT)[number]; sellPrice: number }[] = [];
+    for (const cargo of this.state.player.cargo) {
+      const loot = RUIN_LOOT.find(l => l.id === cargo.id);
+      if (loot) {
+        const mult = ARTEFACT_PRICE_MULTIPLIERS[loot.rarity] ?? 1;
+        results.push({ item: cargo, loot, sellPrice: Math.round(loot.value * mult) });
+      }
+    }
+    return results;
+  }
+
+  private renderArtefacts(): string {
+    let html = `<div class="center-section-title">Artefact Dealer</div>`;
+    const artefacts = this.getArtefactCargo();
+
+    if (artefacts.length === 0) {
+      html += `<div class="service-panel"><div class="row">You have no artefacts to sell. Explore ruins to find ancient relics!</div></div>`;
+    } else {
+      html += `<div class="market-table">`;
+      html += `<div class="market-header"><span class="col-name">Artefact</span><span class="col-rarity">Rarity</span><span class="col-price">Price</span><span class="col-qty">Qty</span><span class="col-action"></span></div>`;
+      for (let i = 0; i < artefacts.length; i++) {
+        const a = artefacts[i];
+        const sel = i === this.selectedIndex ? ' selected' : '';
+        const rarityClass = a.loot.rarity === 'rare' ? 'good' : a.loot.rarity === 'uncommon' ? 'warn' : '';
+        html += `<div class="market-row${sel}" data-artefact-idx="${i}">`;
+        html += `<span class="col-name">${a.loot.name}</span>`;
+        html += `<span class="col-rarity ${rarityClass}">${a.loot.rarity}</span>`;
+        html += `<span class="col-price good">${a.sellPrice} CR</span>`;
+        html += `<span class="col-qty">x${a.item.quantity}</span>`;
+        html += `<span class="col-action"><button class="sell-btn" data-artefact-sell="${i}">Sell [V]</button></span>`;
+        html += `</div>`;
+      }
+      html += `</div>`;
+    }
+
+    html += `<div class="controls-hint">UP/DOWN to navigate &bull; V to sell &bull; ESC to go back</div>`;
+    return html;
+  }
+
+  private sellArtefact(): void {
+    if (this.mode !== 'artefacts') return;
+    const artefacts = this.getArtefactCargo();
+    const entry = artefacts[this.selectedIndex];
+    if (!entry) return;
+
+    this.state.player.credits += entry.sellPrice;
+    entry.item.quantity--;
+    getAudioManager().playSfx('trade_sell');
+
+    if (entry.item.quantity <= 0) {
+      this.state.player.cargo = this.state.player.cargo.filter(c => c.quantity > 0);
+    }
+
+    // Adjust selected index if list shrunk
+    const newArtefacts = this.getArtefactCargo();
+    if (this.selectedIndex >= newArtefacts.length) {
+      this.selectedIndex = Math.max(0, newArtefacts.length - 1);
+    }
+
     this.renderCenter();
   }
 

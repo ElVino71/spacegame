@@ -3,12 +3,13 @@ import { getGameState, GameState } from '../GameState';
 import { GAME_WIDTH, GAME_HEIGHT } from '../utils/Constants';
 import { PlanetData } from '../entities/StarSystem';
 import { SeededRandom } from '../utils/SeededRandom';
-import { getCargoCapacity, getCargoUsed, getCrewCapacity } from '../entities/Player';
+import { CargoItem, getCargoCapacity, getCargoUsed, getCrewCapacity } from '../entities/Player';
 import { getFrameManager } from '../ui/FrameManager';
 import { getAudioManager } from '../audio/AudioManager';
 import { getChatterSystem } from '../systems/ChatterSystem';
 import { TRADE_GOODS, TRADE_PREFIXES, TradeGood } from '../data/trade';
-import { SHOP_TEMPLATES, BAR_TEMPLATES, MODULE_CATALOG, ModuleForSale, ShopDef } from '../data/settlements';
+import { SHOP_TEMPLATES, BAR_TEMPLATES, ARTEFACT_SHOP_TEMPLATES, MODULE_CATALOG, ModuleForSale, ShopDef } from '../data/settlements';
+import { RUIN_LOOT, ARTEFACT_PRICE_MULTIPLIERS } from '../data/ruins';
 import { CharacterGenerator } from '../generation/CharacterGenerator';
 import { CrewMember } from '../entities/Character';
 import { PortraitRenderer } from '../ui/PortraitRenderer';
@@ -25,7 +26,7 @@ const MOVE_DELAY = 150;
 type SettlementTileType =
   | 'road' | 'road_cross' | 'plaza'
   | 'building_wall' | 'building_floor' | 'building_door'
-  | 'shop_trade' | 'shop_modules' | 'shop_bar'
+  | 'shop_trade' | 'shop_modules' | 'shop_bar' | 'shop_artefacts'
   | 'fence' | 'lamp' | 'void';
 
 interface SettlementTile {
@@ -58,7 +59,7 @@ export class SettlementScene extends Phaser.Scene {
   // Shop state
   private shopActive = false;
   private activeShop: ShopDef | null = null;
-  private shopMode: 'menu' | 'trade' | 'modules' | 'bar' = 'menu';
+  private shopMode: 'menu' | 'trade' | 'modules' | 'bar' | 'artefacts' = 'menu';
   private market: MarketListing[] = [];
   private moduleStock: ModuleForSale[] = [];
   private hirelings: CrewMember[] = [];
@@ -251,6 +252,7 @@ export class SettlementScene extends Phaser.Scene {
       case 'shop_trade':     return 'settlement_shop_trade';
       case 'shop_modules':   return 'settlement_shop_modules';
       case 'shop_bar':        return 'settlement_shop_bar';
+      case 'shop_artefacts': return 'settlement_shop_trade';
       case 'fence':          return 'settlement_fence';
       case 'lamp':           return 'settlement_lamp';
       default:               return 'settlement_road';
@@ -302,6 +304,8 @@ export class SettlementScene extends Phaser.Scene {
     } else if (shop.type === 'modules') {
       this.shopMode = 'modules';
       this.generateModuleStock();
+    } else if (shop.type === 'artefacts') {
+      this.shopMode = 'artefacts';
     } else {
       this.shopMode = 'bar';
       this.generateHirelings();
@@ -472,6 +476,8 @@ export class SettlementScene extends Phaser.Scene {
       html = this.renderTradeShop();
     } else if (this.shopMode === 'modules') {
       html = this.renderModuleShop();
+    } else if (this.shopMode === 'artefacts') {
+      html = this.renderArtefactShop();
     } else if (this.shopMode === 'bar') {
       html = this.renderBar();
     }
@@ -575,6 +581,73 @@ export class SettlementScene extends Phaser.Scene {
     return html;
   }
 
+  private getArtefactCargo(): { item: CargoItem; loot: (typeof RUIN_LOOT)[number]; sellPrice: number }[] {
+    const results: { item: CargoItem; loot: (typeof RUIN_LOOT)[number]; sellPrice: number }[] = [];
+    for (const cargo of this.state.player.cargo) {
+      const loot = RUIN_LOOT.find(l => l.id === cargo.id);
+      if (loot) {
+        const mult = ARTEFACT_PRICE_MULTIPLIERS[loot.rarity] ?? 1;
+        results.push({ item: cargo, loot, sellPrice: Math.round(loot.value * mult) });
+      }
+    }
+    return results;
+  }
+
+  private renderArtefactShop(): string {
+    const shop = this.activeShop!;
+    let html = `<div class="center-section-title">${shop.name}</div>`;
+    html += `<div class="center-section-subtitle">${shop.desc}</div>`;
+    html += `<div class="row"><span class="label">Credits</span><span class="value good">${this.state.player.credits} CR</span></div>`;
+
+    const artefacts = this.getArtefactCargo();
+    if (artefacts.length === 0) {
+      html += `<div class="service-panel"><div class="row">You have no artefacts to sell. Explore ruins to find ancient relics!</div></div>`;
+    } else {
+      html += `<table class="market-table"><thead><tr>`;
+      html += `<th>Artefact</th><th class="right">Rarity</th><th class="right">Price</th><th class="right">Qty</th><th>Action</th>`;
+      html += `</tr></thead>`;
+      for (let i = 0; i < artefacts.length; i++) {
+        const a = artefacts[i];
+        const sel = i === this.selectedIndex ? ' selected' : '';
+        const rarityClass = a.loot.rarity === 'rare' ? 'good' : a.loot.rarity === 'uncommon' ? 'warn' : '';
+        html += `<tr class="${sel}" data-artefact-idx="${i}">`;
+        html += `<td class="good-name">${a.loot.name}</td>`;
+        html += `<td class="right ${rarityClass}">${a.loot.rarity}</td>`;
+        html += `<td class="right good">${a.sellPrice} CR</td>`;
+        html += `<td class="right">x${a.item.quantity}</td>`;
+        html += `<td class="market-actions"><button class="market-btn sell-btn" data-artefact-sell="${i}" title="Sell one">&minus;</button></td>`;
+        html += `</tr>`;
+      }
+      html += `</table>`;
+    }
+
+    html += `<div class="controls-hint">Click &minus; to sell &bull; ESC back</div>`;
+    return html;
+  }
+
+  private sellArtefact(): void {
+    if (this.shopMode !== 'artefacts') return;
+    const artefacts = this.getArtefactCargo();
+    const entry = artefacts[this.selectedIndex];
+    if (!entry) return;
+
+    this.state.player.credits += entry.sellPrice;
+    entry.item.quantity--;
+    getAudioManager().playSfx('trade_sell');
+
+    if (entry.item.quantity <= 0) {
+      this.state.player.cargo = this.state.player.cargo.filter(c => c.quantity > 0);
+    }
+
+    const newArtefacts = this.getArtefactCargo();
+    if (this.selectedIndex >= newArtefacts.length) {
+      this.selectedIndex = Math.max(0, newArtefacts.length - 1);
+    }
+
+    this.renderShop();
+    this.updatePanel();
+  }
+
   private bindShopClicks(): void {
     const frame = getFrameManager();
     const el = frame.getCenterContentEl();
@@ -636,10 +709,30 @@ export class SettlementScene extends Phaser.Scene {
         this.renderShop();
       });
     });
+
+    // Artefact sell buttons
+    el.querySelectorAll('button[data-artefact-sell]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const idx = parseInt((btn as HTMLElement).dataset.artefactSell!, 10);
+        this.selectedIndex = idx;
+        this.sellArtefact();
+      });
+    });
+
+    // Artefact row clicks
+    el.querySelectorAll('tr[data-artefact-idx]').forEach(row => {
+      row.addEventListener('click', () => {
+        const idx = parseInt((row as HTMLElement).dataset.artefactIdx!, 10);
+        this.selectedIndex = idx;
+        getAudioManager().playSfx('ui_navigate');
+        this.renderShop();
+      });
+    });
   }
 
   private shopNavigate(dir: number): void {
-    const max = this.shopMode === 'trade' ? this.market.length : this.shopMode === 'modules' ? this.moduleStock.length : this.hirelings.length;
+    const max = this.shopMode === 'trade' ? this.market.length : this.shopMode === 'modules' ? this.moduleStock.length : this.shopMode === 'artefacts' ? this.getArtefactCargo().length : this.hirelings.length;
     if (max === 0) return;
     this.selectedIndex = (this.selectedIndex + dir + max) % max;
     getAudioManager().playSfx('ui_navigate');
@@ -651,6 +744,8 @@ export class SettlementScene extends Phaser.Scene {
       this.tryBuy();
     } else if (this.shopMode === 'modules') {
       this.tryBuyModule();
+    } else if (this.shopMode === 'artefacts') {
+      this.sellArtefact();
     } else if (this.shopMode === 'bar') {
       this.tryHire();
     }
@@ -805,6 +900,10 @@ export class SettlementScene extends Phaser.Scene {
       // Second shop is modules
       shops.push(moduleShops[rng.int(0, moduleShops.length - 1)]);
     }
+    // ~30% chance of an artefact dealer
+    if (rng.next() < 0.3) {
+      shops.push(ARTEFACT_SHOP_TEMPLATES[rng.int(0, ARTEFACT_SHOP_TEMPLATES.length - 1)]);
+    }
     // Always a bar
     shops.push(BAR_TEMPLATES[rng.int(0, BAR_TEMPLATES.length - 1)]);
 
@@ -854,7 +953,7 @@ export class SettlementScene extends Phaser.Scene {
             if (isShop && dx === Math.floor(block.w / 2) && dy === Math.floor(block.h / 2)) {
               const shopType = shops[shopIdx].type;
               this.tiles[ty][tx] = {
-                type: shopType === 'trade' ? 'shop_trade' : shopType === 'modules' ? 'shop_modules' : 'shop_bar',
+                type: shopType === 'trade' ? 'shop_trade' : shopType === 'modules' ? 'shop_modules' : shopType === 'artefacts' ? 'shop_artefacts' : 'shop_bar',
                 walkable: false,
               };
             }

@@ -444,6 +444,9 @@ export class SystemScene extends Phaser.Scene {
       sprite.setPosition(npc.x, npc.y);
       sprite.setRotation(npc.angle + Math.PI / 2);
 
+      // Update encounter cooldown
+      if (npc.encounterCooldown > 0) npc.encounterCooldown -= dt;
+
       // Proximity chatter
       const dx = this.shipX - npc.x;
       const dy = this.shipY - npc.y;
@@ -458,6 +461,12 @@ export class SystemScene extends Phaser.Scene {
       // Reset hailed flag when player moves away
       if (dist > hailRange * 2) {
         npc.hailed = false;
+      }
+
+      // Hostile NPC auto-trigger encounter
+      if (npc.behavior === 'pirate' && npc.aggroRange > 0 && dist < npc.aggroRange && npc.encounterCooldown <= 0) {
+        this.startEncounter(npc, 'hostile');
+        return; // scene is transitioning
       }
     }
 
@@ -528,7 +537,7 @@ export class SystemScene extends Phaser.Scene {
       }
     }
 
-    // Check NPC ships (only show info, no interaction yet)
+    // Check NPC ships
     for (const npc of this.npcShips) {
       const dx = this.shipX - npc.x;
       const dy = this.shipY - npc.y;
@@ -556,7 +565,19 @@ export class SystemScene extends Phaser.Scene {
         targetData: { station: this.system.station },
         text: `DOCKING AT ${this.system.station.name.toUpperCase()}...`,
       });
+    } else if (this.nearestNPC) {
+      this.startEncounter(this.nearestNPC, 'neutral');
     }
+  }
+
+  private startEncounter(npc: NPCShipData, mode: 'hostile' | 'neutral'): void {
+    npc.encounterCooldown = 30; // prevent re-trigger for 30s
+    this.scene.start('TransitionScene', {
+      type: 'encounter',
+      targetScene: 'SpaceInteractionScene',
+      targetData: { npc, mode },
+      text: mode === 'hostile' ? 'HOSTILE CONTACT!' : 'APPROACHING VESSEL...',
+    });
   }
 
   private updateUI(): void {
@@ -593,6 +614,7 @@ export class SystemScene extends Phaser.Scene {
       info += `Class: ${npc.shipClass}\n`;
       info += `Faction: ${faction}\n`;
       info += `Status: ${behaviorLabel}\n`;
+      info += `[ENTER] Interact\n`;
       this.infoText.setText(info);
     } else {
       this.infoText.setText(`System: ${this.system.name}\nPlanets: ${this.system.planets.length}`);

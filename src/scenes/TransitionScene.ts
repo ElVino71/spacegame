@@ -3,7 +3,7 @@ import { GAME_WIDTH, GAME_HEIGHT, COLORS } from '../utils/Constants';
 import { getFrameManager } from '../ui/FrameManager';
 import { getAudioManager } from '../audio/AudioManager';
 
-export type TransitionType = 'warp' | 'land' | 'takeoff' | 'dock' | 'undock';
+export type TransitionType = 'warp' | 'land' | 'takeoff' | 'dock' | 'undock' | 'encounter';
 
 interface TransitionConfig {
   type: TransitionType;
@@ -81,6 +81,7 @@ export class TransitionScene extends Phaser.Scene {
       case 'takeoff': this.drawTakeoff(delta); break;
       case 'dock': this.drawDock(delta); break;
       case 'undock': this.drawTakeoff(delta); break;
+      case 'encounter': this.drawWarp(delta); break;
     }
   }
 
@@ -91,6 +92,7 @@ export class TransitionScene extends Phaser.Scene {
       case 'takeoff': return LAND_DURATION;
       case 'dock': return 1400;
       case 'undock': return 1400;
+      case 'encounter': return 1200;
     }
   }
 
@@ -101,6 +103,7 @@ export class TransitionScene extends Phaser.Scene {
       case 'takeoff': return 'LAUNCHING FROM SURFACE...';
       case 'dock': return 'DOCKING SEQUENCE INITIATED...';
       case 'undock': return 'UNDOCKING...';
+      case 'encounter': return 'CONTACT!';
     }
   }
 

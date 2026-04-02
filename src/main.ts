@@ -10,6 +10,8 @@ import { StationScene } from './scenes/StationScene';
 import { TransitionScene } from './scenes/TransitionScene';
 import { RuinsScene } from './scenes/RuinsScene';
 import { SettlementScene } from './scenes/SettlementScene';
+import { SpaceInteractionScene } from './scenes/SpaceInteractionScene';
+import { GameOverScene } from './scenes/GameOverScene';
 import { GAME_WIDTH, GAME_HEIGHT } from './utils/Constants';
 import { getFrameManager } from './ui/FrameManager';
 
@@ -43,6 +45,8 @@ const config: Phaser.Types.Core.GameConfig = {
     StationScene,
     RuinsScene,
     SettlementScene,
+    SpaceInteractionScene,
+    GameOverScene,
     TransitionScene,
   ],
   scale: {

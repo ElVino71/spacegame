@@ -172,6 +172,15 @@ export const RUIN_LOOT: RuinLoot[] = [
     description: 'An object of unknown purpose, radiating faint energy. Museums would pay dearly for this.' },
 ];
 
+// ─── Artefact Pricing ──────────────────────────────────
+// Price multipliers when selling ruin loot at artefact traders (vs base value)
+
+export const ARTEFACT_PRICE_MULTIPLIERS: Record<string, number> = {
+  common: 1.5,
+  uncommon: 2.0,
+  rare: 2.5,
+};
+
 // ─── Ruin Chatter ──────────────────────────────────────
 // Scene-specific chatter lines for the ruins
 

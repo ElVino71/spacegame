@@ -149,10 +149,10 @@ All SFX are synthesized procedurally (oscillators, filters, noise). No audio fil
 - **Data directory rule**: All new game content data (arrays of items, word lists, config tables, lore entries, bios, stat tables, etc.) **must** go in `src/data/`. Scene and entity files should only contain logic — never inline content data. If adding a new content domain (e.g. lore, NPCs, quests), create a new file in `src/data/` and add it to the barrel export in `src/data/index.ts`.
 - **Key binding convention**: **SPACE** = interact (mine, collect, buy/sell, read — in-place actions). **ENTER** = enter scene (enter ruins, settlements, shops, dock, land — scene transitions). All scenes must follow this pattern consistently.
 
-## Key Rules
+## Key AI Agent Rules
 
-I want claude to update the documents after each major step has been done, or more simply just keep the documents up to date.
-I want claude to make a file for the current planned piece of work before the work starts, so if we run out of tokens, we can review this file
+I want AI Agents to update the documents after each major step has been done, or more simply just keep the documents up to date.
+I want AI Agents to make a file for the current planned piece of work before the work starts, so if we run out of tokens, we can review this file
 to continue the work. Update this plan file as we continue, and clear it when its done, check if the @PLAN.md has anything in that is unfinished before
 we start anything new.
 Use and update @GAME_CONCEPT.md to check of key design goals.
