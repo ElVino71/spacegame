@@ -69,8 +69,7 @@ export class TitleScene extends Phaser.Scene {
     const continueBtn = container.querySelector('#continue-btn');
 
     newGameBtn?.addEventListener('click', () => {
-      newGame();
-      this.scene.start('GalaxyMapScene');
+      this.showNameEntry();
     });
 
     if (saveExists) {
@@ -82,6 +81,53 @@ export class TitleScene extends Phaser.Scene {
         }
       });
     }
+  }
+
+  private showNameEntry(): void {
+    const frame = getFrameManager();
+
+    const html = `
+      <div class="title-container" style="text-align: center; padding: 40px; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; font-family: var(--frame-font-heading);">
+        <h1 style="font-size: 48px; margin-bottom: 20px; color: var(--frame-border-color); text-shadow: 0 0 20px var(--frame-border-glow); letter-spacing: 6px;">IDENTIFY YOURSELF</h1>
+        <div style="margin-bottom: 40px; color: var(--frame-text-secondary); letter-spacing: 3px; font-size: 16px;">ENTER YOUR CAPTAIN'S NAME</div>
+
+        <div style="display: flex; flex-direction: column; align-items: center; gap: 20px; width: 400px;">
+          <input id="captain-name-input" type="text" maxlength="20" placeholder="Captain Name"
+            style="width: 100%; padding: 12px 20px; font-size: 24px; font-family: var(--frame-font-heading);
+            text-align: center; background: rgba(0,0,0,0.6); border: 2px solid var(--frame-border-color);
+            color: var(--frame-text-primary); letter-spacing: 3px; outline: none;"
+          />
+          <div style="color: var(--frame-text-muted); font-size: 12px; letter-spacing: 2px;">YOUR RANK AND REPUTATION WILL BE EARNED</div>
+          <div style="display: flex; gap: 15px; margin-top: 20px;">
+            <button id="name-back-btn" class="action" style="padding: 12px 30px; font-size: 16px; cursor: pointer;">BACK</button>
+            <button id="name-confirm-btn" class="action" style="padding: 12px 30px; font-size: 16px; cursor: pointer;">LAUNCH</button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    frame.setCenterContent(html);
+
+    const container = frame.getCenterContentEl();
+    const input = container.querySelector('#captain-name-input') as HTMLInputElement;
+    const confirmBtn = container.querySelector('#name-confirm-btn');
+    const backBtn = container.querySelector('#name-back-btn');
+
+    // Focus the input
+    setTimeout(() => input?.focus(), 100);
+
+    const launchGame = () => {
+      const name = input.value.trim() || 'Unknown';
+      newGame(undefined, name);
+      this.scene.start('GalaxyMapScene');
+    };
+
+    input?.addEventListener('keydown', (e: KeyboardEvent) => {
+      if (e.key === 'Enter') launchGame();
+    });
+
+    confirmBtn?.addEventListener('click', launchGame);
+    backBtn?.addEventListener('click', () => this.setupUI());
   }
 
   private drawWarp(delta: number): void {

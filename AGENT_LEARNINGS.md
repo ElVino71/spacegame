@@ -21,3 +21,12 @@
 - Artefact traders match cargo items to RUIN_LOOT by id, apply rarity-based price multipliers (ARTEFACT_PRICE_MULTIPLIERS)
 - Station artefact dealer always available (uses 'fence' NPC role); settlement artefact shop has ~30% spawn chance
 - New shop types added to settlements via ShopType union and ARTEFACT_SHOP_TEMPLATES in `src/data/settlements.ts`
+
+## Progression System Pattern
+- All progression data (ranks, nicknames, stat weights) in `src/data/progression.ts` per data directory rule
+- `PlayerStats` tracked on `PlayerData.stats`, incremented inline at each action's hook point
+- Stat hooks added directly in scene methods (tryBuy, trySell, interact, etc.) — no event system needed
+- `getCaptainTitle(player)` helper in `Player.ts` computes the full display title
+- Captain title passed as optional 6th param to `FrameManager.updateStatus()` for bottom bar display
+- Save system uses optional fields with fallback defaults for backward compatibility with old saves
+- `newGame()` accepts optional `captainName` parameter, flows through `GameState` → `createNewPlayer()`

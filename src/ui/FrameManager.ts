@@ -90,6 +90,10 @@ export class FrameManager {
           <span class="frame-status-label">CR</span>
           <span class="frame-status-value credits-value">--</span>
         </div>
+        <div class="frame-status-divider"></div>
+        <div class="frame-status-item captain-item">
+          <span class="frame-status-value captain-title" style="letter-spacing: 1px; color: var(--frame-border-color); font-size: 11px;">--</span>
+        </div>
       </div>
 
       <!-- Left panel (scene content) -->
@@ -307,7 +311,7 @@ export class FrameManager {
     this.hullLabelEl.textContent = label;
   }
 
-  updateStatus(hull: { current: number; max: number }, fuel: { current: number; max: number }, cargoUsed: number, cargoMax: number, credits: number): void {
+  updateStatus(hull: { current: number; max: number }, fuel: { current: number; max: number }, cargoUsed: number, cargoMax: number, credits: number, captainTitle?: string): void {
     const hullPct = Math.round((hull.current / hull.max) * 100);
     const fuelPct = Math.round((fuel.current / fuel.max) * 100);
     const cargoPct = cargoMax > 0 ? Math.round((cargoUsed / cargoMax) * 100) : 0;
@@ -330,6 +334,14 @@ export class FrameManager {
     fuelValEl.textContent = `${Math.round(fuel.current)}/${fuel.max}`;
     cargoValEl.textContent = `${cargoUsed}/${cargoMax}`;
     this.statusCreditsEl.textContent = credits.toLocaleString();
+    if (captainTitle !== undefined) {
+      this.updateCaptainTitle(captainTitle);
+    }
+  }
+
+  updateCaptainTitle(title: string): void {
+    const el = this.frameEl.querySelector('.captain-title');
+    if (el) el.textContent = title;
   }
 
   // --- Left Panel ---

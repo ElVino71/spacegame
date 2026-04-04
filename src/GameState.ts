@@ -7,10 +7,10 @@ export class GameState {
   galaxy: StarSystemData[];
   player: PlayerData;
 
-  constructor(seed?: number) {
+  constructor(seed?: number, captainName?: string) {
     this.seed = seed ?? Math.floor(Math.random() * 2147483647);
     this.galaxy = generateGalaxy(this.seed);
-    this.player = createNewPlayer();
+    this.player = createNewPlayer(captainName);
   }
 
   getCurrentSystem(): StarSystemData {
@@ -68,6 +68,7 @@ export class GameState {
     this.player.ship.fuel.current -= fuelCost;
     this.player.currentSystemId = targetId;
     this.visitSystem(targetId);
+    this.player.stats.jumps++;
     return true;
   }
 }
@@ -82,8 +83,8 @@ export function getGameState(): GameState {
   return gameState;
 }
 
-export function newGame(seed?: number): GameState {
-  gameState = new GameState(seed);
+export function newGame(seed?: number, captainName?: string): GameState {
+  gameState = new GameState(seed, captainName);
   return gameState;
 }
 

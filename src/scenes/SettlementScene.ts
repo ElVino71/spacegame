@@ -3,7 +3,7 @@ import { getGameState, GameState } from '../GameState';
 import { GAME_WIDTH, GAME_HEIGHT } from '../utils/Constants';
 import { PlanetData } from '../entities/StarSystem';
 import { SeededRandom } from '../utils/SeededRandom';
-import { CargoItem, getCargoCapacity, getCargoUsed, getCrewCapacity } from '../entities/Player';
+import { CargoItem, getCargoCapacity, getCargoUsed, getCrewCapacity, getCaptainTitle } from '../entities/Player';
 import { getFrameManager } from '../ui/FrameManager';
 import { getAudioManager } from '../audio/AudioManager';
 import { getChatterSystem } from '../systems/ChatterSystem';
@@ -203,7 +203,7 @@ export class SettlementScene extends Phaser.Scene {
     getFrameManager().updateStatus(
       ship.hull, ship.fuel,
       getCargoUsed(this.state.player.cargo), getCargoCapacity(ship),
-      this.state.player.credits
+      this.state.player.credits, getCaptainTitle(this.state.player)
     );
   }
 
@@ -455,6 +455,7 @@ export class SettlementScene extends Phaser.Scene {
 
     this.state.player.credits -= cost;
     this.state.player.crew.push(candidate);
+    this.state.player.stats.crew_hired++;
     this.hirelings = this.hirelings.filter(h => h.id !== candidate.id);
 
     getFrameManager().showAlert(`${candidate.name} joined the crew!`, 'info');
@@ -632,6 +633,8 @@ export class SettlementScene extends Phaser.Scene {
     if (!entry) return;
 
     this.state.player.credits += entry.sellPrice;
+    this.state.player.stats.trades++;
+    this.state.player.stats.credits_earned += entry.sellPrice;
     entry.item.quantity--;
     getAudioManager().playSfx('trade_sell');
 
@@ -760,6 +763,7 @@ export class SettlementScene extends Phaser.Scene {
 
     this.state.player.credits -= listing.buyPrice;
     listing.stock--;
+    this.state.player.stats.trades++;
     getAudioManager().playSfx('trade_buy');
 
     const existing = this.state.player.cargo.find(c => c.id === listing.cargoId);
@@ -792,6 +796,8 @@ export class SettlementScene extends Phaser.Scene {
     if (!owned || owned.quantity <= 0) return;
 
     this.state.player.credits += listing.sellPrice;
+    this.state.player.stats.trades++;
+    this.state.player.stats.credits_earned += listing.sellPrice;
     listing.stock++;
     owned.quantity--;
     getAudioManager().playSfx('trade_sell');

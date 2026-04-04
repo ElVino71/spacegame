@@ -3,7 +3,7 @@ import { getGameState, GameState } from '../GameState';
 import { GAME_WIDTH, GAME_HEIGHT } from '../utils/Constants';
 import { PlanetData } from '../entities/StarSystem';
 import { SeededRandom } from '../utils/SeededRandom';
-import { CargoItem, getCargoCapacity, getCargoUsed } from '../entities/Player';
+import { CargoItem, getCargoCapacity, getCargoUsed, getCaptainTitle } from '../entities/Player';
 import { getFrameManager } from '../ui/FrameManager';
 import { getAudioManager } from '../audio/AudioManager';
 import { getChatterSystem } from '../systems/ChatterSystem';
@@ -216,7 +216,7 @@ export class RuinsScene extends Phaser.Scene {
 
     const frame = getFrameManager();
     // Show suit integrity in the bottom bar HULL slot
-    frame.updateStatus(this.suitIntegrity, ship.fuel, cargoUsed, cargoMax, this.state.player.credits);
+    frame.updateStatus(this.suitIntegrity, ship.fuel, cargoUsed, cargoMax, this.state.player.credits, getCaptainTitle(this.state.player));
 
     // Ruin info
     const panelRuin = document.getElementById('panel-ruin');
@@ -469,6 +469,7 @@ export class RuinsScene extends Phaser.Scene {
     tile.loreRead = true;
 
     this.discoveredLore.push(tile.loreEntry);
+    this.state.player.stats.lore_discovered++;
 
     // Persist to player's lore collection (deduplicate by id)
     const known = this.state.player.loreFragments;

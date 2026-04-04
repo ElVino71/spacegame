@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { getGameState, GameState } from '../GameState';
 import { COLORS, SYSTEM_BOUNDS } from '../utils/Constants';
 import { StarSystemData, PlanetData, AsteroidBeltData } from '../entities/StarSystem';
-import { getShipSpeed, getCargoCapacity, getCargoUsed } from '../entities/Player';
+import { getShipSpeed, getCargoCapacity, getCargoUsed, getCaptainTitle } from '../entities/Player';
 import { getFrameManager } from '../ui/FrameManager';
 import { getAudioManager } from '../audio/AudioManager';
 import { getChatterSystem } from '../systems/ChatterSystem';
@@ -231,7 +231,8 @@ export class SystemScene extends Phaser.Scene {
       ship.hull, ship.fuel,
       getCargoUsed(this.state.player.cargo),
       getCargoCapacity(ship),
-      this.state.player.credits
+      this.state.player.credits,
+      getCaptainTitle(this.state.player)
     );
   }
 
@@ -551,6 +552,7 @@ export class SystemScene extends Phaser.Scene {
   private interact(): void {
     if (this.nearestPlanet && this.nearestPlanet.landable) {
       getAudioManager().playSfx('land');
+      getGameState().player.stats.landings++;
       this.scene.start('TransitionScene', {
         type: 'land',
         targetScene: 'PlanetSurfaceScene',
@@ -559,6 +561,7 @@ export class SystemScene extends Phaser.Scene {
       });
     } else if (this.nearStation && this.system.station) {
       getAudioManager().playSfx('dock');
+      getGameState().player.stats.stations_docked++;
       this.scene.start('TransitionScene', {
         type: 'dock',
         targetScene: 'StationScene',

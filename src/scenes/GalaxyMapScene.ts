@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { getGameState, GameState } from '../GameState';
 import { COLORS, GALAXY_BOUNDS, FACTION_NAMES, GAME_WIDTH, GAME_HEIGHT } from '../utils/Constants';
 import { StarSystemData } from '../entities/StarSystem';
-import { getJumpRange, getShieldCapacity, getCargoCapacity, getCargoUsed, getShipSpeed } from '../entities/Player';
+import { getJumpRange, getShieldCapacity, getCargoCapacity, getCargoUsed, getShipSpeed, getCaptainTitle } from '../entities/Player';
 import { getFrameManager } from '../ui/FrameManager';
 import { getAudioManager } from '../audio/AudioManager';
 import { getChatterSystem } from '../systems/ChatterSystem';
@@ -321,7 +321,7 @@ export class GalaxyMapScene extends Phaser.Scene {
 
     // Update bottom bar status
     const frame = getFrameManager();
-    frame.updateStatus(hull, fuel, cargoUsed, cargoMax, this.state.player.credits);
+    frame.updateStatus(hull, fuel, cargoUsed, cargoMax, this.state.player.credits, getCaptainTitle(this.state.player));
 
     // Ship section
     const panelShip = document.getElementById('panel-ship');

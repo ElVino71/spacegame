@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { getGameState, GameState } from '../GameState';
 import { COLORS, GAME_WIDTH, GAME_HEIGHT } from '../utils/Constants';
 import { ModuleSlot, ModuleType } from '../entities/Ship';
-import { getCargoCapacity, getCargoUsed, getRepairDiscount, getFuelEfficiency } from '../entities/Player';
+import { getCargoCapacity, getCargoUsed, getRepairDiscount, getFuelEfficiency, getCaptainTitle } from '../entities/Player';
 import { CrewMember } from '../entities/Character';
 import { getFrameManager } from '../ui/FrameManager';
 import { getAudioManager } from '../audio/AudioManager';
@@ -124,7 +124,8 @@ export class ShipInteriorScene extends Phaser.Scene {
       ship.hull, ship.fuel,
       getCargoUsed(this.state.player.cargo),
       getCargoCapacity(ship),
-      this.state.player.credits
+      this.state.player.credits,
+      getCaptainTitle(this.state.player)
     );
 
     // Build room layout
@@ -683,7 +684,7 @@ export class ShipInteriorScene extends Phaser.Scene {
     const cargoUsed = getCargoUsed(this.state.player.cargo);
     const cargoMax = getCargoCapacity(ship);
 
-    frame.updateStatus(ship.hull, ship.fuel, cargoUsed, cargoMax, this.state.player.credits);
+    frame.updateStatus(ship.hull, ship.fuel, cargoUsed, cargoMax, this.state.player.credits, getCaptainTitle(this.state.player));
 
     // Crew management mode takes over the panel
     if (this.crewManageMode && this.currentRoom) {

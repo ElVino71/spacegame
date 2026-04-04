@@ -2,6 +2,7 @@ import { ShipData, SHIP_TEMPLATES, STARTER_MODULES, STARTER_SHIP_NAME, STARTER_C
 import { CrewMember } from './Character';
 import { CREW_CAPACITY } from '../data/characters';
 import { LoreFragment } from '../data/ruins';
+import { PlayerStats, createEmptyStats, getPlayerTitle } from '../data/progression';
 
 export interface DiscoveredLore extends LoreFragment {
   discoveredAt: {
@@ -20,6 +21,7 @@ export interface CargoItem {
 }
 
 export interface PlayerData {
+  captainName: string;
   ship: ShipData;
   credits: number;
   cargo: CargoItem[];
@@ -29,9 +31,10 @@ export interface PlayerData {
   visitedSystems: Set<number>;
   loreFragments: DiscoveredLore[];
   crew: CrewMember[];
+  stats: PlayerStats;
 }
 
-export function createNewPlayer(): PlayerData {
+export function createNewPlayer(captainName: string = 'Unknown'): PlayerData {
   const template = SHIP_TEMPLATES[STARTER_SHIP_CLASS];
 
   const slots = template.slots.map(s => ({ ...s, module: null as ShipModule | null }));
@@ -59,6 +62,7 @@ export function createNewPlayer(): PlayerData {
   };
 
   return {
+    captainName,
     ship,
     credits: STARTER_CREDITS,
     cargo: [],
@@ -68,6 +72,7 @@ export function createNewPlayer(): PlayerData {
     visitedSystems: new Set([0]),
     loreFragments: [],
     crew: [],
+    stats: createEmptyStats(),
   };
 }
 
@@ -149,4 +154,9 @@ export function getWeaponDamageBonus(crew: CrewMember[] = []): number {
 export function getMedicMoraleBonus(crew: CrewMember[] = []): number {
   const medic = crew.find(c => c.role === 'medic' && c.assignedRoom === 'life_support');
   return medic ? 1 : 0; // +1 extra morale per jump if medic in life support
+}
+
+/** Get the player's full display title (Rank 'Nickname' Name) */
+export function getCaptainTitle(player: PlayerData): string {
+  return getPlayerTitle(player.captainName, player.stats);
 }

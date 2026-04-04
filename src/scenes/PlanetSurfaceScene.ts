@@ -3,7 +3,7 @@ import { getGameState, GameState } from '../GameState';
 import { COLORS, GAME_WIDTH, GAME_HEIGHT } from '../utils/Constants';
 import { PlanetData } from '../entities/StarSystem';
 import { SeededRandom } from '../utils/SeededRandom';
-import { CargoItem, getCargoCapacity, getCargoUsed } from '../entities/Player';
+import { CargoItem, getCargoCapacity, getCargoUsed, getCaptainTitle } from '../entities/Player';
 import { getFrameManager } from '../ui/FrameManager';
 import { getAudioManager } from '../audio/AudioManager';
 import { getChatterSystem } from '../systems/ChatterSystem';
@@ -176,7 +176,7 @@ export class PlanetSurfaceScene extends Phaser.Scene {
 
     // Update bottom bar — show rover hull, not ship hull
     const frame = getFrameManager();
-    frame.updateStatus(this.roverHull, ship.fuel, cargoUsed, cargoMax, this.state.player.credits);
+    frame.updateStatus(this.roverHull, ship.fuel, cargoUsed, cargoMax, this.state.player.credits, getCaptainTitle(this.state.player));
 
     // Planet info
     const panelPlanet = document.getElementById('panel-planet')!;
@@ -413,6 +413,7 @@ export class PlanetSurfaceScene extends Phaser.Scene {
         return;
       }
       getAudioManager().playSfx('mine');
+      getGameState().player.stats.minerals_mined++;
       // Add mineral to rover cargo
       const mineralName = tile.mineralType || 'Unknown Ore';
       const existing = this.roverCargo.find(c => c.id === mineralName);
@@ -437,6 +438,7 @@ export class PlanetSurfaceScene extends Phaser.Scene {
 
     if (tile.type === 'ruin_entrance') {
       getAudioManager().playSfx('land');
+      getGameState().player.stats.ruins_explored++;
       const frame = getFrameManager();
       frame.hidePanel();
       this.scene.start('TransitionScene', {
@@ -447,6 +449,7 @@ export class PlanetSurfaceScene extends Phaser.Scene {
       });
     } else if (tile.type === 'settlement') {
       getAudioManager().playSfx('land');
+      getGameState().player.stats.settlements_visited++;
       const frame = getFrameManager();
       frame.hidePanel();
       this.scene.start('TransitionScene', {

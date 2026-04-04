@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { getGameState, GameState } from '../GameState';
 import { FACTION_NAMES } from '../data/factions';
 import { StationData } from '../entities/StarSystem';
-import { CargoItem, getCargoCapacity, getCargoUsed, getCrewCapacity, getRepairDiscount } from '../entities/Player';
+import { CargoItem, getCargoCapacity, getCargoUsed, getCrewCapacity, getRepairDiscount, getCaptainTitle } from '../entities/Player';
 import { SeededRandom } from '../utils/SeededRandom';
 import { getFrameManager } from '../ui/FrameManager';
 import { getAudioManager } from '../audio/AudioManager';
@@ -143,7 +143,7 @@ export class StationScene extends Phaser.Scene {
     const cargoUsed = getCargoUsed(this.state.player.cargo);
     const cargoMax = getCargoCapacity(ship);
 
-    frame.updateStatus(ship.hull, ship.fuel, cargoUsed, cargoMax, this.state.player.credits);
+    frame.updateStatus(ship.hull, ship.fuel, cargoUsed, cargoMax, this.state.player.credits, getCaptainTitle(this.state.player));
 
     let html = '';
 
@@ -528,6 +528,7 @@ export class StationScene extends Phaser.Scene {
 
     this.state.player.credits -= listing.buyPrice;
     listing.stock--;
+    this.state.player.stats.trades++;
     getAudioManager().playSfx('trade_buy');
 
     const existing = this.state.player.cargo.find(c => c.id === listing.cargoId);
@@ -559,6 +560,8 @@ export class StationScene extends Phaser.Scene {
     if (!owned || owned.quantity <= 0) return;
 
     this.state.player.credits += listing.sellPrice;
+    this.state.player.stats.trades++;
+    this.state.player.stats.credits_earned += listing.sellPrice;
     listing.stock++;
     owned.quantity--;
     getAudioManager().playSfx('trade_sell');
@@ -615,11 +618,12 @@ export class StationScene extends Phaser.Scene {
 
     this.state.player.credits -= cost;
     this.state.player.crew.push(candidate);
+    this.state.player.stats.crew_hired++;
     this.hirelings = this.hirelings.filter(h => h.id !== candidate.id);
 
     getFrameManager().showAlert(`${candidate.name} joined the crew!`, 'info');
     getAudioManager().playSfx('ui_confirm');
-    
+
     if (this.hirelings.length === 0) {
       this.mode = 'menu';
       this.selectedIndex = 0;
@@ -678,6 +682,8 @@ export class StationScene extends Phaser.Scene {
     if (!entry) return;
 
     this.state.player.credits += entry.sellPrice;
+    this.state.player.stats.trades++;
+    this.state.player.stats.credits_earned += entry.sellPrice;
     entry.item.quantity--;
     getAudioManager().playSfx('trade_sell');
 

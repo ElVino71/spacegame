@@ -4,7 +4,7 @@ import { getFrameManager } from '../ui/FrameManager';
 import { getAudioManager } from '../audio/AudioManager';
 import { GAME_WIDTH, GAME_HEIGHT, COLORS } from '../utils/Constants';
 import { NPCShipData } from '../entities/NPCShip';
-import { getCargoUsed, getCargoCapacity } from '../entities/Player';
+import { getCargoUsed, getCargoCapacity, getCaptainTitle } from '../entities/Player';
 import {
   CombatState, createCombatState, updateCombat, attemptFlee, getFleeChance,
 } from '../systems/CombatSystem';
@@ -139,6 +139,7 @@ export class SpaceInteractionScene extends Phaser.Scene {
   private startCombat(): void {
     this.inCombat = true;
     this.combatEnded = false;
+    getGameState().player.stats.ships_attacked++;
     getFrameManager().setSceneTitle('Combat');
 
     // Hide center overlay if it was showing neutral UI
@@ -551,9 +552,11 @@ export class SpaceInteractionScene extends Phaser.Scene {
     let moduleLoot: ShipModule | null = null;
 
     if (status === 'player_won') {
+      state.player.stats.ships_destroyed++;
       const lootTable = COMBAT_LOOT[this.npc.behavior as keyof typeof COMBAT_LOOT] || COMBAT_LOOT.pirate;
       creditsGained = lootTable.creditsMin + Math.floor(Math.random() * (lootTable.creditsMax - lootTable.creditsMin));
       state.player.credits += creditsGained;
+      state.player.stats.credits_earned += creditsGained;
 
       // Reputation
       repChange = lootTable.reputationGain;
@@ -734,6 +737,7 @@ export class SpaceInteractionScene extends Phaser.Scene {
       getCargoUsed(getGameState().player.cargo),
       getCargoCapacity(ship),
       getGameState().player.credits,
+      getCaptainTitle(getGameState().player),
     );
   }
 }

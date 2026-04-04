@@ -322,6 +322,32 @@ A persistent HTML/CSS frame wraps the entire game canvas, providing a cockpit-li
 
 ---
 
+## Captain Progression — IMPLEMENTED
+
+### Name Entry
+- [x] Player enters captain name at game start
+- [x] Name persisted in save data
+
+### Rank System (10 tiers)
+- [x] Ranks based on total weighted XP from all tracked activities
+- [x] Tiers: Void Cadet → Ensign → Lieutenant → Star Captain → Commander → Commodore → Rear Admiral → Viceroy → Grand Admiral → Sovereign
+- [x] XP weights vary by action (lore discovery worth more than jumping)
+
+### Nickname System (6 categories, 7 tiers each)
+- [x] Dominant playstyle determines nickname category
+- [x] Categories: explorer, trader, warrior, scholar, miner, social
+- [x] Nicknames evolve with deeper specialization (e.g. warrior: Scrappy → Trigger-Happy → Evil → Brutal → Notorious → Dread → The Annihilator)
+- [x] Semi-humorous options mixed with cool ones
+
+### Display
+- [x] Full title (e.g. "Star Captain 'Evil' El-Vino") shown in bottom status bar
+- [x] Terminal `status` command shows rank, XP, next rank, and playstyle category
+
+### Tracked Stats
+- jumps, landings, trades, minerals_mined, lore_discovered, ships_attacked, ships_destroyed, stations_docked, ruins_explored, settlements_visited, credits_earned, crew_hired
+
+---
+
 ## Open Questions / Future Ideas
 - Base building on planets?
 - Multiplayer / async elements?

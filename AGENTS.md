@@ -116,6 +116,7 @@ All human-editable game content lives in `src/data/` for easy tweaking:
 - `names.ts` — Name generation word lists (system/planet/station syllables)
 - `npcChatter.ts` — NPC ship proximity chatter (patrol/trader/pirate pools)
 - `misc.ts` — Jokes, flavour text
+- `progression.ts` — Rank tiers (10 levels), nickname pools (6 categories, 7 tiers each), stat XP weights, PlayerStats interface, progression calculation functions
 - `index.ts` — Barrel re-exports
 
 Source files import from `src/data/` for content and keep only structural types/interfaces locally. Non-mineral trade goods get seeded prefixes per station that modify display name and price.
@@ -125,7 +126,7 @@ Source files import from `src/data/` for content and keep only structural types/
 - **ShipData**: Typed module slots (engine/weapon/shield/cargo/sensor/computer/mining/hull/life_support), each with a max size constraint. Modules have flexible `stats: Record<string, number>`.
 - **NPCShipData** (`src/entities/NPCShip.ts`): AI ships in system view with behavior (patrol/trader/pirate), faction coloring, proximity chatter. Seeded per-system via `generateNPCShips()`. 1-4 ships per system depending on station presence.
 - **StarSystemData**: Star type, planets (with orbit physics), asteroid belts, optional station. Index in galaxy array = system ID.
-- **PlayerData**: Ship, credits, cargo items, current system ID, faction reputation, discovered/visited system sets.
+- **PlayerData**: Ship, credits, cargo items, current system ID, faction reputation, discovered/visited system sets. Includes `captainName` (entered at game start) and `stats: PlayerStats` tracking all player actions for progression.
 
 ### UI Approach
 

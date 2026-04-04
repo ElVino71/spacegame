@@ -2,11 +2,12 @@ import Phaser from 'phaser';
 import { getGameState, GameState } from '../GameState';
 import { saveGame } from '../utils/SaveSystem';
 import { COLORS, FACTION_NAMES } from '../utils/Constants';
-import { getCargoCapacity, getCargoUsed, getShieldCapacity, getJumpRange, getShipSpeed } from '../entities/Player';
+import { getCargoCapacity, getCargoUsed, getShieldCapacity, getJumpRange, getShipSpeed, getCaptainTitle } from '../entities/Player';
 import { getFrameManager } from '../ui/FrameManager';
 import { getAudioManager } from '../audio/AudioManager';
 import { getChatterSystem } from '../systems/ChatterSystem';
 import { JOKES } from '../data/misc';
+import { calculateTotalXP as calcTotalXP, getCurrentRank, getNextRank, getCurrentNickname } from '../data/progression';
 
 interface TerminalLine {
   text: string;
@@ -66,7 +67,8 @@ export class TerminalScene extends Phaser.Scene {
       ship.hull, ship.fuel,
       getCargoUsed(this.state.player.cargo),
       getCargoCapacity(ship),
-      this.state.player.credits
+      this.state.player.credits,
+      getCaptainTitle(this.state.player)
     );
 
     // Terminal border
@@ -324,7 +326,22 @@ export class TerminalScene extends Phaser.Scene {
   private cmdStatus(): void {
     const ship = this.state.player.ship;
     const system = this.state.getCurrentSystem();
+    const title = getCaptainTitle(this.state.player);
+    const xp = calcTotalXP(this.state.player.stats);
+    const rank = getCurrentRank(this.state.player.stats);
+    const nextRank = getNextRank(this.state.player.stats);
+    const { category } = getCurrentNickname(this.state.player.stats);
 
+    this.printLine('=== CAPTAIN ===', '#ffcc00');
+    this.printLine(`  ${title}`, '#00ff88');
+    this.printLine(`  Rank:     ${rank.title} (${xp} XP)`);
+    if (nextRank) {
+      this.printLine(`  Next:     ${nextRank.title} (${nextRank.minXP} XP)`);
+    } else {
+      this.printLine(`  Next:     MAX RANK`, '#ffcc00');
+    }
+    this.printLine(`  Style:    ${category}`);
+    this.printLine('');
     this.printLine('=== SHIP STATUS ===', '#00aaff');
     this.printLine(`  Ship:     ${ship.name} (${ship.class})`);
     this.printLine(`  Hull:     ${Math.floor(ship.hull.current)}/${ship.hull.max}`);
