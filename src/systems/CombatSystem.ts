@@ -326,7 +326,7 @@ function executeManeuver(ship: CombatShip, opponent: CombatShip, dt: number): vo
     case 'orbit': {
       // Circle the opponent
       ship.maneuver.orbitAngle = (ship.maneuver.orbitAngle ?? 0) + dt * 1.2;
-      const orbitDist = 250;
+      const orbitDist = 180;
       const orbitX = opponent.x + Math.cos(ship.maneuver.orbitAngle) * orbitDist;
       const orbitY = opponent.y + Math.sin(ship.maneuver.orbitAngle) * orbitDist;
       targetAngle = Math.atan2(orbitY - ship.y, orbitX - ship.x);
@@ -382,12 +382,44 @@ function executeManeuver(ship: CombatShip, opponent: CombatShip, dt: number): vo
 }
 
 function clampToArena(ship: CombatShip): void {
-  const margin = 30;
-  const bounce = 0.5;
-  if (ship.x < margin) { ship.x = margin; ship.vx = Math.abs(ship.vx) * bounce; }
-  if (ship.x > COMBAT_ARENA.width - margin) { ship.x = COMBAT_ARENA.width - margin; ship.vx = -Math.abs(ship.vx) * bounce; }
-  if (ship.y < margin) { ship.y = margin; ship.vy = Math.abs(ship.vy) * bounce; }
-  if (ship.y > COMBAT_ARENA.height - margin) { ship.y = COMBAT_ARENA.height - margin; ship.vy = -Math.abs(ship.vy) * bounce; }
+  // Soft circular boundary — ships decelerate smoothly as they approach the edge
+  // so they never visibly "bump" anything
+  const cx = COMBAT_ARENA.width / 2;
+  const cy = COMBAT_ARENA.height / 2;
+  const radius = 280;
+  const softZone = 120; // wide deceleration zone for very gradual slowdown
+
+  const dx = ship.x - cx;
+  const dy = ship.y - cy;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+
+  if (dist > radius - softZone && dist > 0) {
+    const nx = dx / dist;
+    const ny = dy / dist;
+
+    // How deep into the soft zone (0 = just entered, 1 = at boundary)
+    const t = Math.min(1, (dist - (radius - softZone)) / softZone);
+
+    // 1) Kill outward velocity component — stronger the closer to edge
+    const outwardSpeed = ship.vx * nx + ship.vy * ny; // dot product
+    if (outwardSpeed > 0) {
+      // Dampen outward velocity: at t=0 remove 30%, at t=1 remove 100%
+      const dampen = 0.3 + t * 0.7;
+      ship.vx -= nx * outwardSpeed * dampen;
+      ship.vy -= ny * outwardSpeed * dampen;
+    }
+
+    // 2) Gentle inward drift so ships ease back toward center
+    const pullStrength = t * t * 80; // quadratic ramp — subtle near inner edge, firm near outer
+    ship.vx -= nx * pullStrength * 0.016;
+    ship.vy -= ny * pullStrength * 0.016;
+
+    // 3) Safety clamp (should rarely trigger now)
+    if (dist > radius) {
+      ship.x = cx + nx * radius;
+      ship.y = cy + ny * radius;
+    }
+  }
 }
 
 // ─── WEAPONS ──────────────────────────────────────────────

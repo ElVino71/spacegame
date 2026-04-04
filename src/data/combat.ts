@@ -289,8 +289,8 @@ export const BATTLE_SUMMARY = {
 export const COMBAT_ARENA = {
   width: 1200,
   height: 700,
-  playerStartX: 300,
+  playerStartX: 450,
   playerStartY: 350,
-  enemyStartX: 900,
+  enemyStartX: 750,
   enemyStartY: 350,
 };
