@@ -1,5 +1,17 @@
 import { StarType, PlanetType, EconomyType } from '../utils/Constants';
 
+export interface GalaxyTile {
+  type: 'empty' | 'nebula' | 'dust';
+  factionIndex: number;
+  variation: number;
+}
+
+export interface GalaxyData {
+  systems: StarSystemData[];
+  tiles: GalaxyTile[][];
+  gridSize: number;
+}
+
 export interface StarSystemData {
   id: number;
   name: string;

@@ -1,5 +1,5 @@
 import { PlayerData, DiscoveredLore } from '../entities/Player';
-import { StarSystemData } from '../entities/StarSystem';
+import { StarSystemData, GalaxyData } from '../entities/StarSystem';
 import { CrewMember } from '../entities/Character';
 import { GameState, newGame } from '../GameState';
 import { PlayerStats, createEmptyStats } from '../data/progression';
@@ -21,7 +21,7 @@ export interface SaveData {
     crew?: CrewMember[];
     stats?: PlayerStats;
   };
-  galaxy: StarSystemData[];
+    galaxy: GalaxyData;
 }
 
 export function saveGame(state: GameState): void {

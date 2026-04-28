@@ -11,6 +11,7 @@ const PANEL_WIDTH = 260;
 
 export class GalaxyMapScene extends Phaser.Scene {
   private state!: GameState;
+  private tileGraphics!: Phaser.GameObjects.Graphics;
   private starGraphics!: Phaser.GameObjects.Graphics;
   private connectionGraphics!: Phaser.GameObjects.Graphics;
   private nameLabels: Phaser.GameObjects.Text[] = [];
@@ -51,6 +52,7 @@ export class GalaxyMapScene extends Phaser.Scene {
 
     this.createStarfield();
 
+    this.tileGraphics = this.add.graphics().setDepth(-1);
     this.connectionGraphics = this.add.graphics();
     this.starGraphics = this.add.graphics();
 
@@ -124,18 +126,21 @@ export class GalaxyMapScene extends Phaser.Scene {
   // ─── STARFIELD ──────────────────────────────────────────
 
   private createStarfield(): void {
-    const gfx = this.add.graphics().setDepth(-1);
-    for (let i = 0; i < 500; i++) {
+    // Starfield is now redundant with tiles for main galaxy view, 
+    // but keep it as a very faint background layer for depth.
+    const gfx = this.add.graphics().setDepth(-2);
+    for (let i = 0; i < 300; i++) {
       const x = (Math.random() - 0.5) * GALAXY_BOUNDS * 1.5;
       const y = (Math.random() - 0.5) * GALAXY_BOUNDS * 1.5;
-      gfx.fillStyle(0xffffff, 0.1 + Math.random() * 0.4);
-      gfx.fillRect(x, y, Math.random() < 0.9 ? 1 : 2, 1);
+      gfx.fillStyle(0xffffff, 0.05 + Math.random() * 0.1);
+      gfx.fillRect(x, y, 1, 1);
     }
   }
 
   // ─── GALAXY DRAW ────────────────────────────────────────
 
   private drawGalaxy(): void {
+    this.tileGraphics.clear();
     this.connectionGraphics.clear();
     this.starGraphics.clear();
     
@@ -143,15 +148,44 @@ export class GalaxyMapScene extends Phaser.Scene {
     this.nameLabels.forEach(l => l.destroy());
     this.nameLabels = [];
 
+    const galaxy = this.state.galaxy;
     const currentSystem = this.state.getCurrentSystem();
     const jumpRange = getJumpRange(this.state.player.ship);
 
+    // Draw tiles
+    const tileSize = GALAXY_BOUNDS / galaxy.gridSize;
+    const halfBounds = GALAXY_BOUNDS / 2;
+
+    for (let y = 0; y < galaxy.gridSize; y++) {
+      for (let x = 0; x < galaxy.gridSize; x++) {
+        const tile = galaxy.tiles[y][x];
+        const tx = (x / galaxy.gridSize) * GALAXY_BOUNDS - halfBounds;
+        const ty = (y / galaxy.gridSize) * GALAXY_BOUNDS - halfBounds;
+
+        // Faction background
+        if (tile.factionIndex >= 0) {
+          const factionColor = COLORS.factions[tile.factionIndex];
+          this.tileGraphics.fillStyle(factionColor, 0.05);
+          this.tileGraphics.fillRect(tx, ty, tileSize, tileSize);
+        }
+
+        // Nebula/Dust
+        if (tile.type === 'nebula') {
+          this.tileGraphics.fillStyle(0x8844ff, 0.08);
+          this.tileGraphics.fillCircle(tx + tileSize/2, ty + tileSize/2, tileSize * 0.8);
+        } else if (tile.type === 'dust') {
+          this.tileGraphics.fillStyle(0x445566, 0.1);
+          this.tileGraphics.fillRect(tx + tileSize*0.2, ty + tileSize*0.2, tileSize*0.6, tileSize*0.6);
+        }
+      }
+    }
+
     // Connections
     const drawn = new Set<string>();
-    for (const system of this.state.galaxy) {
+    for (const system of galaxy.systems) {
       if (!system.discovered) continue;
       for (const connId of system.connections) {
-        const conn = this.state.galaxy[connId];
+        const conn = galaxy.systems[connId];
         if (!conn.discovered) continue;
         const key = Math.min(system.id, connId) + '-' + Math.max(system.id, connId);
         if (drawn.has(key)) continue;
@@ -168,7 +202,7 @@ export class GalaxyMapScene extends Phaser.Scene {
     this.connectionGraphics.strokeCircle(currentSystem.x, currentSystem.y, jumpRange * 3);
 
     // Stars
-    for (const system of this.state.galaxy) {
+    for (const system of galaxy.systems) {
       if (!system.discovered) continue;
       this.drawStar(system, system.id === currentSystem.id);
       
@@ -266,7 +300,7 @@ export class GalaxyMapScene extends Phaser.Scene {
     let closest: StarSystemData | null = null;
     let closestDist = Infinity;
 
-    for (const sys of this.state.galaxy) {
+    for (const sys of this.state.galaxy.systems) {
       if (!sys.discovered) continue;
       const dist = Math.hypot(sys.x - wp.x, sys.y - wp.y);
       if (dist < cr && dist < closestDist) { closest = sys; closestDist = dist; }
@@ -286,7 +320,7 @@ export class GalaxyMapScene extends Phaser.Scene {
     let closest: StarSystemData | null = null;
     let closestDist = Infinity;
 
-    for (const sys of this.state.galaxy) {
+    for (const sys of this.state.galaxy.systems) {
       if (!sys.discovered) continue;
       const dist = Math.hypot(sys.x - wp.x, sys.y - wp.y);
       if (dist < hr && dist < closestDist) { closest = sys; closestDist = dist; }

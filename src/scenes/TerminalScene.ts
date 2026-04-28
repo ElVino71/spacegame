@@ -423,7 +423,7 @@ export class TerminalScene extends Phaser.Scene {
       this.printLine('  Connected systems:');
 
       for (const connId of system.connections) {
-        const conn = this.state.galaxy[connId];
+        const conn = this.state.galaxy.systems[connId];
         const dx = system.x - conn.x;
         const dy = system.y - conn.y;
         const dist = Math.sqrt(dx * dx + dy * dy);

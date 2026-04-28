@@ -1,8 +1,10 @@
 import { SeededRandom } from '../utils/SeededRandom';
-import { StarSystemData } from '../entities/StarSystem';
+import { StarSystemData, GalaxyData, GalaxyTile } from '../entities/StarSystem';
 import { GALAXY_SIZE, GALAXY_BOUNDS, STAR_TYPES, StarType, COLORS } from '../utils/Constants';
 import { generateSystemName } from './NameGenerator';
 import { generateSystem } from './SystemGenerator';
+
+const GRID_SIZE = 64; // 64x64 tiles
 
 interface Point { x: number; y: number; }
 
@@ -168,7 +170,7 @@ function pickStarType(rng: SeededRandom, distFromCenter: number): StarType {
   return rng.weighted([...STAR_TYPES], weights);
 }
 
-export function generateGalaxy(seed: number): StarSystemData[] {
+export function generateGalaxy(seed: number): GalaxyData {
   const rng = new SeededRandom(seed);
 
   // Generate star positions
@@ -216,6 +218,43 @@ export function generateGalaxy(seed: number): StarSystemData[] {
     generateSystem(systems[i], sysRng);
   }
 
+  // Generate tile grid
+  const tiles: GalaxyTile[][] = [];
+  const tileRng = rng.fork(999);
+  
+  for (let y = 0; y < GRID_SIZE; y++) {
+    tiles[y] = [];
+    for (let x = 0; x < GRID_SIZE; x++) {
+      // Find nearest system to assign faction
+      let nearestDist = Infinity;
+      let nearestFaction = -1;
+      
+      const tx = (x / GRID_SIZE) * GALAXY_BOUNDS - halfBounds;
+      const ty = (y / GRID_SIZE) * GALAXY_BOUNDS - halfBounds;
+      
+      for (const sys of systems) {
+        const dx = sys.x - tx;
+        const dy = sys.y - ty;
+        const distSq = dx * dx + dy * dy;
+        if (distSq < nearestDist) {
+          nearestDist = distSq;
+          nearestFaction = sys.factionIndex;
+        }
+      }
+
+      let type: 'empty' | 'nebula' | 'dust' = 'empty';
+      const roll = tileRng.next();
+      if (roll < 0.05) type = 'nebula';
+      else if (roll < 0.15) type = 'dust';
+
+      tiles[y][x] = {
+        type,
+        factionIndex: nearestFaction,
+        variation: tileRng.int(0, 3)
+      };
+    }
+  }
+
   // Mark starting system
   systems[0].discovered = true;
   systems[0].visited = true;
@@ -225,5 +264,9 @@ export function generateGalaxy(seed: number): StarSystemData[] {
     systems[conn].discovered = true;
   }
 
-  return systems;
+  return {
+    systems,
+    tiles,
+    gridSize: GRID_SIZE
+  };
 }

@@ -1,10 +1,10 @@
-import { StarSystemData } from './entities/StarSystem';
+import { StarSystemData, GalaxyData, GalaxyTile } from './entities/StarSystem';
 import { PlayerData, createNewPlayer, getFuelEfficiency, getMedicMoraleBonus } from './entities/Player';
 import { generateGalaxy } from './generation/GalaxyGenerator';
 
 export class GameState {
   seed: number;
-  galaxy: StarSystemData[];
+  galaxy: GalaxyData;
   player: PlayerData;
 
   constructor(seed?: number, captainName?: string) {
@@ -14,21 +14,21 @@ export class GameState {
   }
 
   getCurrentSystem(): StarSystemData {
-    return this.galaxy[this.player.currentSystemId];
+    return this.galaxy.systems[this.player.currentSystemId];
   }
 
   discoverSystem(id: number): void {
     this.player.discoveredSystems.add(id);
-    this.galaxy[id].discovered = true;
+    this.galaxy.systems[id].discovered = true;
   }
 
   visitSystem(id: number): void {
     this.player.visitedSystems.add(id);
-    this.galaxy[id].visited = true;
+    this.galaxy.systems[id].visited = true;
     this.discoverSystem(id);
 
     // Discover connected systems
-    for (const conn of this.galaxy[id].connections) {
+    for (const conn of this.galaxy.systems[id].connections) {
       this.discoverSystem(conn);
     }
   }
@@ -38,7 +38,7 @@ export class GameState {
     if (!current.connections.includes(targetId)) return false;
 
     // Check fuel
-    const target = this.galaxy[targetId];
+    const target = this.galaxy.systems[targetId];
     const dx = current.x - target.x;
     const dy = current.y - target.y;
     const dist = Math.sqrt(dx * dx + dy * dy);

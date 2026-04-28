@@ -474,7 +474,7 @@ export class RuinsScene extends Phaser.Scene {
     // Persist to player's lore collection (deduplicate by id)
     const known = this.state.player.loreFragments;
     if (!known.find(f => f.id === tile.loreEntry!.id)) {
-      const system = this.state.galaxy[this.state.player.currentSystemId];
+      const system = this.state.galaxy.systems[this.state.player.currentSystemId];
       known.push({
         ...tile.loreEntry,
         discoveredAt: {
